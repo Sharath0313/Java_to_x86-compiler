@@ -1,0 +1,3 @@
+All names are taken under AmbigousName except MethodName
+
+MethodName is treated as Identifier only.

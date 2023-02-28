@@ -19,7 +19,7 @@ using namespace std;
 }
 
 %token<str> Identifier IntegralType FloatingPointType boolean extends super
-%type<str> Type PrimitiveType ReferenceType Annotations NumericType ClassOrInterfaceType TypeVariable ArrayType ClassType InterfaceType Annotation TypeArguments PackageName Dims TypeParameter TypeBound TypeParameterModifier AdditionBounds TypeArgumentList TypeArgument WildCard WildCardBounds
+%type<str> Type PrimitiveType ReferenceType Annotations NumericType ClassOrInterfaceType TypeVariable ArrayType ClassType InterfaceType Annotation TypeArguments AmbigousName Dims TypeParameter TypeBound TypeParameterModifier AdditionBounds TypeArgumentList TypeArgument WildCard WildCardBounds
 
 %%
 
@@ -46,8 +46,8 @@ ClassOrInterfaceType    : ClassType
 
 ClassType       : Annotations Identifier
                 | Annotations Identifier TypeArguments
-                | PackageName '.' Annotations Identifier
-                | PackageName '.' Annotations Identifier TypeArguments
+                | AmbigousName '.' Annotations Identifier
+                | AmbigousName '.' Annotations Identifier TypeArguments
                 | ClassOrInterfaceType '.' Annotations Identifier 
                 | ClassOrInterfaceType '.' Annotations Identifier TypeArguments
                 ;
@@ -105,6 +105,10 @@ WildCardBounds  : extends ReferenceType
 
 Annotations     : %empty
                 | Annotations Annotation    
+                ;
+
+AmbigousName    : Identifier
+                | AmbigousName '.' Identifier
                 ;
 
 %%                     
