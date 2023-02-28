@@ -18,8 +18,9 @@ using namespace std;
     char* str;
 }
 
-%token<str> Identifier IntegralType FloatingPointType boolean extends super
+%token<str> Identifier IntegralType FloatingPointType boolean extends super interface public private protected abstract Static sealed non-sealed strictfp permits default
 %type<str> Type PrimitiveType ReferenceType Annotations NumericType ClassOrInterfaceType TypeVariable ArrayType ClassType InterfaceType Annotation TypeArguments AmbigousName Dims TypeParameter TypeBound TypeParameterModifier AdditionBounds TypeArgumentList TypeArgument WildCard WildCardBounds
+%type<str> InterfaceDeclaration NormalInterfaceDeclaration AnnotationInterfaceDeclaration InterfaceBody TypeParameters InterfaceExtends InterfacePermits InterfaceModifier InterfaceTypeList InterfaceMemberDeclaration InterfaceMemberDeclarations ConstantDeclaration InterfaceMethodDeclaration ClassDeclaration InterfaceDeclaration UnannType VariableDeclaratorList ConstantModifier MethodHeader MethodBody InterfaceMethodModifier AnnotationInterfaceBody AnnotationInterfaceMemberDeclarations AnnotationInterfaceMemberDeclaration AnnotationInterfaceElementDeclaration DefaultValue ElementValue NormalAnnotation MarkerAnnotation SingleElementAnnotation ElementValuePairList ElementValuePair ElementValueArrayInitializer ConditionalExpression ElementValueList
 
 %%
 
@@ -110,6 +111,145 @@ Annotations     : %empty
 AmbigousName    : Identifier
                 | AmbigousName '.' Identifier
                 ;
+
+InterfaceDeclaration    : NormalInterfaceDeclaration
+                        | AnnotationInterfaceDeclaration
+                        ;
+
+NormalInterfaceDeclaration  : interface Identifier InterfaceBody
+                            | interface Identifier TypeParameters InterfaceBody
+                            | interface Identifier InterfaceExtends InterfaceBody
+                            | interface Identifier TypeParameters InterfaceExtends InterfaceBody
+                            | interface Identifier InterfacePermits InterfaceBody
+                            | interface Identifier TypeParameters InterfacePermits InterfaceBody
+                            | interface Identifier InterfaceExtends InterfacePermits InterfaceBody
+                            | interface Identifier TypeParameters InterfaceExtends InterfacePermits InterfaceBody
+                            | InterfaceModifier NormalInterfaceDeclaration
+                            ;
+
+InterfaceModifier   : Annotation
+                    | public
+                    | private
+                    | protected
+                    | abstract
+                    | Static
+                    | sealed
+                    | non-sealed
+                    | strictfp
+                    ;
+
+InterfaceExtends    : extends InterfaceTypeList
+                    ;
+
+InterfacePermits    : permits AmbigousName
+                    | InterfacePermits ',' AmbigousName
+                    ;
+
+InterfaceBody       : '{' InterfaceMemberDeclarations '}'
+                    ;
+
+InterfaceMemberDeclarations : %empty
+                            | InterfaceMemberDeclarations InterfaceMemberDeclaration
+                            ;
+
+InterfaceMemberDeclaration  : ConstantDeclaration
+                            | InterfaceMethodDeclaration
+                            | ClassDeclaration
+                            | InterfaceDeclaration
+                            | ';'
+                            ;
+
+ConstantDeclaration     : UnannType VariableDeclaratorList ';'
+                        | ConstantModifier ConstantDeclaration
+                        ;
+
+ConstantModifier        : Annotation 
+                        | public
+                        | Static
+                        | final
+                        ;
+
+InterfaceMethodDeclaration  : MethodHeader MethodBody
+                            | InterfaceMethodModifier InterfaceMethodDeclaration
+                            ;
+
+InterfaceMethodModifier     : Annotation
+                            | public
+                            | private
+                            | abstract
+                            | default
+                            | Static
+                            | strictfp
+                            ;
+
+AnnotationInterfaceDeclaration  : '@' interface Identifier AnnotationInterfaceBody
+                                | InterfaceModifier AnnotationInterfaceDeclaration
+                                ;
+
+AnnotationInterfaceBody     : '{' AnnotationInterfaceMemberDeclarations '}'
+                            ;
+
+AnnotationInterfaceMemberDeclarations   : %empty
+                                        | AnnotationInterfaceMemberDeclarations AnnotationInterfaceMemberDeclaration
+                                        ;
+
+AnnotationInterfaceMemberDeclaration    : ConstantDeclaration
+                                        | ClassDeclaration
+                                        | InterfaceDeclaration
+                                        | AnnotationInterfaceElementDeclaration
+                                        ;
+
+AnnotationInterfaceElementDeclaration   : UnannType Identifier '(' ')' ';'
+                                        | UnannType Identifier '(' ')' Dims ';'
+                                        | UnannType Identifier '(' ')' DefaultValue ';'
+                                        | UnannType Identifier '(' ')' Dims DefaultValue ';'
+                                        | AnnotationInterfaceElementModifier AnnotationInterfaceElementDeclaration
+                                        ;
+
+AnnotationInterfaceElementModifier      : Annotation
+                                        | public
+                                        | abstract
+                                        ;
+
+DefaultValue        : default ElementValue
+                    ;
+
+Annotation          : NormalAnnotation
+                    | MarkerAnnotation
+                    | SingleElementAnnotation
+                    ;
+
+NormalAnnotation    : '@' AmbigousName '(' ')'
+                    | '@' AmbigousName '(' ElementValuePairList ')'
+                    ;
+
+ElementValuePairList    : ElementValuePair
+                        | ElementValuePairList ElementValuePair
+                        ;
+
+ElementValuePair    : Identifier = ElementValue
+                    ;
+
+ElementValue        : ConditionalExpression
+                    | ElementValueArrayInitializer
+                    | Annotation
+                    ;
+
+ElementValueArrayInitializer    : '{' '}'
+                                | '{' ElementValueList '}'
+                                | '{' ',' '}'
+                                | '{' ElementValueList ',' '}'
+                                ;
+
+ElementValueList    : ElementValue
+                    | ElementValueList ElementValue
+                    ;
+
+MarkerAnnotation    : '@' AmbigousName
+                    ;
+
+SingleElementAnnotation     : '@' AmbigousName '(' ElementValue ')'
+                            ;
 
 %%                     
 

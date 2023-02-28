@@ -1,0 +1,129 @@
+Type -> PrimitiveType
+Type -> ReferenceType
+PrimitiveType   -> Annotations boolean
+PrimitiveType   -> Annotations NumericType
+NumericType     -> IntegralType
+NumericType     -> FloatingPointType 
+ReferenceType   -> ClassOrInterfaceType
+ReferenceType   -> TypeVariable
+ReferenceType   -> ArrayType 
+ClassOrInterfaceType    -> ClassType
+ClassOrInterfaceType    -> InterfaceType
+ClassType       -> Annotations Identifier
+ClassType       -> Annotations Identifier TypeArguments
+ClassType       -> AmbigousName . Annotations Identifier
+ClassType       -> AmbigousName . Annotations Identifier TypeArguments
+ClassType       -> ClassOrInterfaceType . Annotations Identifier 
+ClassType       -> ClassOrInterfaceType . Annotations Identifier TypeArguments
+InterfaceType   -> ClassType
+TypeVariable    -> Annotations Identifier
+ArrayType       -> PrimitiveType Dims
+ArrayType       -> ClassOrInterfaceType Dims
+ArrayType       -> TypeVariable Dims
+Dims            -> Annotations [ ]
+Dims            -> Dims Annotations [ ]
+TypeParameter   -> Identifier
+TypeParameter   -> Identifier TypeBound
+TypeParameter   -> TypeParameterModifier TypeParameter
+TypeParameterModifier   -> Annotation
+TypeBound       -> extends TypeVariable
+TypeBound       -> extends ClassOrInterfaceType AdditionBounds
+AdditionBounds  -> & InterfaceType
+AdditionBounds  -> AdditionBounds & InterfaceType
+AdditionBounds  -> ''
+TypeArguments   -> < TypeArgumentList >
+TypeArgumentList    -> TypeArgument
+TypeArgumentList    -> TypeArgumentList , TypeArgument
+TypeArgument    -> ReferenceType
+TypeArgument    -> WildCard 
+WildCard        -> Annotations ?
+WildCard        -> Annotations WildCardBounds
+WildCardBounds  -> extends ReferenceType
+WildCardBounds  -> super ReferenceType
+Annotations     -> ''
+Annotations     -> Annotations Annotation
+AmbigousName    -> Identifier
+AmbigousName    -> AmbigousName . Identifier
+InterfaceDeclaration    -> NormalInterfaceDeclaration
+InterfaceDeclaration    -> AnnotationInterfaceDeclaration
+NormalInterfaceDeclaration  -> interface Identifier InterfaceBody
+NormalInterfaceDeclaration  -> interface Identifier TypeParameters InterfaceBody
+NormalInterfaceDeclaration  -> interface Identifier InterfaceExtends InterfaceBody
+NormalInterfaceDeclaration  -> interface Identifier TypeParameters InterfaceExtends InterfaceBody
+NormalInterfaceDeclaration  -> interface Identifier InterfacePermits InterfaceBody
+NormalInterfaceDeclaration  -> interface Identifier TypeParameters InterfacePermits InterfaceBody
+NormalInterfaceDeclaration  -> interface Identifier InterfaceExtends InterfacePermits InterfaceBody
+NormalInterfaceDeclaration  -> interface Identifier TypeParameters InterfaceExtends InterfacePermits InterfaceBody
+NormalInterfaceDeclaration  -> InterfaceModifier NormalInterfaceDeclaration
+InterfaceModifier   -> Annotation
+InterfaceModifier   -> public
+InterfaceModifier   -> private
+InterfaceModifier   -> protected
+InterfaceModifier   -> abstract
+InterfaceModifier   -> Static
+InterfaceModifier   -> sealed
+InterfaceModifier   -> non-sealed
+InterfaceModifier   -> strictfp
+InterfaceExtends    -> extends InterfaceTypeList
+InterfacePermits    -> permits AmbigousName
+InterfacePermits    -> InterfacePermits , AmbigousName
+InterfaceBody       -> { InterfaceMemberDeclarations }
+InterfaceMemberDeclarations -> ''
+InterfaceMemberDeclarations -> InterfaceMemberDeclarations InterfaceMemberDeclaration
+InterfaceMemberDeclaration  -> ConstantDeclaration
+InterfaceMemberDeclaration  -> InterfaceMethodDeclaration
+InterfaceMemberDeclaration  -> ClassDeclaration
+InterfaceMemberDeclaration  -> InterfaceDeclaration
+InterfaceMemberDeclaration  -> ;
+ConstantDeclaration     -> UnannType VariableDeclaratorList ;
+ConstantDeclaration     -> ConstantModifier ConstantDeclaration
+ConstantModifier        -> Annotation 
+ConstantModifier        -> public
+ConstantModifier       -> Static
+ConstantModifier        -> final
+InterfaceMethodDeclaration  -> MethodHeader MethodBody
+InterfaceMethodDeclaration  -> InterfaceMethodModifier InterfaceMethodDeclaration
+InterfaceMethodModifier     -> Annotation
+InterfaceMethodModifier     -> public
+InterfaceMethodModifier     -> private
+InterfaceMethodModifier     -> abstract
+InterfaceMethodModifier     -> default
+InterfaceMethodModifier     -> Static
+InterfaceMethodModifier     -> strictfp
+AnnotationInterfaceDeclaration  -> @ interface Identifier AnnotationInterfaceBody
+AnnotationInterfaceDeclaration  -> InterfaceModifier AnnotationInterfaceDeclaration
+AnnotationInterfaceBody     -> { AnnotationInterfaceMemberDeclarations }
+AnnotationInterfaceMemberDeclarations   -> ''
+AnnotationInterfaceMemberDeclarations   -> AnnotationInterfaceMemberDeclarations AnnotationInterfaceMemberDeclaration
+AnnotationInterfaceMemberDeclaration    -> ConstantDeclaration
+AnnotationInterfaceMemberDeclaration    -> ClassDeclaration
+AnnotationInterfaceMemberDeclaration    -> InterfaceDeclaration
+AnnotationInterfaceMemberDeclaration    -> AnnotationInterfaceElementDeclaration
+AnnotationInterfaceElementDeclaration   -> UnannType Identifier ( ) ;
+AnnotationInterfaceElementDeclaration   -> UnannType Identifier ( ) Dims ;
+AnnotationInterfaceElementDeclaration   -> UnannType Identifier ( ) DefaultValue ;
+AnnotationInterfaceElementDeclaration   -> UnannType Identifier ( ) Dims DefaultValue ;
+AnnotationInterfaceElementDeclaration   -> AnnotationInterfaceElementModifier AnnotationInterfaceElementDeclaration
+AnnotationInterfaceElementModifier      -> Annotation
+AnnotationInterfaceElementModifier      -> public
+AnnotationInterfaceElementModifier      -> abstract
+DefaultValue        -> default ElementValue
+Annotation          -> NormalAnnotation
+Annotation          -> MarkerAnnotation
+Annotation          -> SingleElementAnnotation
+NormalAnnotation    -> @ AmbigousName ( )
+NormalAnnotation    -> @ AmbigousName ( ElementValuePairList )
+ElementValuePairList    -> ElementValuePair
+ElementValuePairList    -> ElementValuePairList ElementValuePair
+ElementValuePair    -> Identifier = ElementValue
+ElementValue        -> ConditionalExpression
+ElementValue        -> ElementValueArrayInitializer
+ElementValue        -> Annotation
+ElementValueArrayInitializer    -> { }
+ElementValueArrayInitializer    -> { ElementValueList }
+ElementValueArrayInitializer    -> { , }
+ElementValueArrayInitializer    -> { ElementValueList , }
+ElementValueList    -> ElementValue
+ElementValueList    -> ElementValueList ElementValue
+MarkerAnnotation    -> @ AmbigousName
+SingleElementAnnotation     -> @ AmbigousName ( ElementValue )                           
