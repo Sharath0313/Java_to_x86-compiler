@@ -19,16 +19,17 @@ using namespace std;
 }
 
 %start Block
-%token<str> NumericType var IDENTIFIER IF ELSE ASSERT THROW TRY CATCH SWITCH arrow CASE DEFAULT WHILE DO FOR BREAK YIELD CONTINUE RETURN finally THIS synchronized CLASS boolean VOID NEW super instanceof
+%token<str> relor reland releq relnoteq shift relgl
+%token<str> AssignmentOperator dots NumericType var IDENTIFIER IF ELSE ASSERT THROW TRY CATCH SWITCH arrow CASE DEFAULT WHILE DO FOR BREAK YIELD CONTINUE RETURN finally THIS synchronized CLASS boolean VOID NEW super instanceof
 %type<str> Block BlockStatement BlockStatements SwitchBlock LocalClassOrInterfaceDeclaration LocalVariableDeclaration LocalVariableDeclarationStatement LocalVariableType LabeledStatementNoShortIf
-%type<str> VariableAccess VariableDeclaratorId VariableDeclaratorList VariableModifier VM UnannClassType NormalInterfaceDeclaration Statement StatementExpression StatementExpressionList StatementNoShortIf StatementWithoutTrailingSubstatement SBSG SL SR
+%type<str> VariableAccess VariableDeclaratorId VariableDeclaratorList VariableModifier UnannClassType NormalInterfaceDeclaration Statement StatementExpression StatementExpressionList StatementNoShortIf StatementWithoutTrailingSubstatement SBSG SL SR
 %type<str> ClassDeclaration LabeledStatement FIit ForInit ForStatement ForStatementNoShortIf ForUpdate IfThenElseStatement IfThenElseStatementNoShortIf IfThenStatement WhileStatement WhileStatementNoShortIf
 %type<str> EmptyStatement EnhancedForStatement EnhancedForStatementNoShortIf BasicForStatement BasicForStatementNoShortIf BreakStatement AssertStatement Assignment CaseConstant CatchClause Catches CatchFormalParameter CatchType CC ConditionalExpression
 %type<str> Expression ExpressionStatement SwitchBlockStatementGroup SwitchLabel SwitchRule SwitchStatement DoStatement ContinueStatement Resource ResourceList ResourceSpecification ReturnStatement
 %type<str> ThrowStatement TryStatement TryWithResourcesStatement YieldStatement SynchronizedStatement ClassInstanceCreationExpression 
 %type<str> CT Finally Pattern TypePattern MethodInvocation MethodReference MethodName UnannType 
 %type<str> Primary PrimaryNoNewArray PrimitiveType Ann AnnI ArrayCreationExpression TypeName FieldAccess ArrayAccess ClassLiteral SqBrackets UnqualifiedClassInstanceCreationExpression ExpressionName 
-%type<str> TA ClassOrInterfaceType ClassOrInterfaceTypeToInstantiate AL CB ClassBody TypeArguments TypeArgumentsOrDiamond ArgumentList ArrayType ClassType ArrayInitializer DimExpr DimExprs Dims
+%type<str> ClassOrInterfaceType ClassOrInterfaceTypeToInstantiate ClassBody TypeArguments TypeArgumentsOrDiamond ArgumentList ArrayType ClassType ArrayInitializer DimExpr DimExprs Dims
 %type<str> LambdaExpression AssignmentExpression LambdaParameter LambdaParameterList LambdaParameters LambdaParameterType LPL IL VariableArityParameter LambdaBody LeftHandSide AssignmentOperator 
 %type<str> ConditionalAndExpression ConditionalOrExpression InclusiveOrExpression ExclusiveOrExpression AndExpression EqualityExpression RelationalExpression ShiftExpression InstanceofExpression AdditionalBound AdditiveExpression MultiplicativeExpression UnaryExpression UnaryExpressionNotPlusMinus
 %type<str> PostfixExpression CastExpression SwitchExpression ReferenceType AB ConstantExpression
@@ -59,11 +60,9 @@ LocalClassOrInterfaceDeclaration	: ClassDeclaration
                                     ;
 LocalVariableDeclarationStatement 	: LocalVariableDeclaration ';'
                                     ;
-LocalVariableDeclaration	: VM LocalVariableType VariableDeclaratorList
+LocalVariableDeclaration	: LocalVariableType VariableDeclaratorList
+							| VariableModifier LocalVariableDeclaration
                             ;
-VM	    : VM VariableModifier
-		| /*empty*/
-        ;
 LocalVariableType	: UnannType
 				    | var
                     ;
@@ -122,16 +121,19 @@ AssertStatement	: ASSERT Expression ';'
 SwitchStatement	: SWITCH '(' Expression ')' SwitchBlock
                 ;
 SwitchBlock	: '{' SR '}'
+			| '{' '}'
+			| '{' SBSG '}'
 			| '{' SBSG SL '}'
+			| '{' SL '}'
             ;
 SR  	: SR SwitchRule
 		| SwitchRule
         ;
 SBSG	: SBSG SwitchBlockStatementGroup
-		|  
+		|  SwitchBlockStatementGroup
         ;
 SL  	: SL SwitchLabel ':'
-		| 
+		| SwitchLabel
         ;
 SwitchRule	: SwitchLabel arrow Expression ';'
 			| SwitchLabel arrow Block
@@ -209,7 +211,8 @@ Catches	    : Catches CatchClause
             ;
 CatchClause	: CATCH '(' CatchFormalParameter ')' Block
             ;
-CatchFormalParameter    : VM CatchType VariableDeclaratorId
+CatchFormalParameter    : CatchType VariableDeclaratorId
+						| VariableModifier CatchFormalParameter
                         ;
 CatchType	: UnannClassType '|' CT 
 			| UnannClassType
@@ -256,25 +259,26 @@ ClassLiteral   	: TypeName SqBrackets '.' CLASS
 			| NumericType SqBrackets '.' CLASS
 			| boolean SqBrackets '.' CLASS
 			| VOID '.' CLASS
+			| TypeName '.' CLASS
+			| NumericType '.' CLASS
+			| boolean '.' CLASS
             ;
 SqBrackets	: SqBrackets '[' ']'
-			| 
+			| '[' ']'
             ;
 ClassInstanceCreationExpression : UnqualifiedClassInstanceCreationExpression
 	                            | ExpressionName '.' UnqualifiedClassInstanceCreationExpression
 	                            | Primary '.' UnqualifiedClassInstanceCreationExpression
                                 ;
-UnqualifiedClassInstanceCreationExpression  : NEW TA ClassOrInterfaceTypeToInstantiate '(' AL ')' CB
+UnqualifiedClassInstanceCreationExpression  : NEW TypeArguments ClassOrInterfaceTypeToInstantiate '(' ArgumentList ')' ClassBody
+											| NEW ClassOrInterfaceTypeToInstantiate '(' ArgumentList ')' ClassBody
+											| NEW TypeArguments ClassOrInterfaceTypeToInstantiate '(' ')' ClassBody
+											| NEW ClassOrInterfaceTypeToInstantiate '(' ')' ClassBody
+											| NEW TypeArguments ClassOrInterfaceTypeToInstantiate '(' ArgumentList ')' 
+											| NEW ClassOrInterfaceTypeToInstantiate '(' ArgumentList ')' 
+											| NEW TypeArguments ClassOrInterfaceTypeToInstantiate '(' ')' 
+											| NEW ClassOrInterfaceTypeToInstantiate '(' ')' 
                                             ;
-TA	    : TypeArguments
-		| 
-        ;
-AL  	: ArgumentList
-		| 
-        ;
-CB  	: ClassBody
-		| 
-        ;
 ClassOrInterfaceTypeToInstantiate   : Ann IDENTIFIER AnnI TypeArgumentsOrDiamond
 	                                | Ann IDENTIFIER AnnI 
                                     ;
@@ -294,23 +298,45 @@ FieldAccess	: Primary '.' IDENTIFIER
 ArrayAccess	: ExpressionName '[' Expression ']'
 			| PrimaryNoNewArray '[' Expression ']'
             ;
-MethodInvocation	: MethodName '(' AL ')'
-				| TypeName '.' TA IDENTIFIER '(' AL ')'
-				| ExpressionName '.' TA IDENTIFIER '(' AL ')'
-				| Primary '.' TA IDENTIFIER '(' AL ')'
-				| super '.' TA IDENTIFIER '(' AL ')'
-				| TypeName '.' super '.' TA IDENTIFIER '(' AL ')'
+MethodInvocation	: MethodName '(' ArgumentList ')'
+				| TypeName '.' TypeArguments IDENTIFIER '(' ArgumentList ')'
+				| ExpressionName '.' TypeArguments IDENTIFIER '(' ArgumentList ')'
+				| Primary '.' TypeArguments IDENTIFIER '(' ArgumentList ')'
+				| super '.' TypeArguments IDENTIFIER '(' ArgumentList ')'
+				| TypeName '.' super '.' TypeArguments IDENTIFIER '(' ArgumentList ')'
+				| MethodName '(' ')'
+				| TypeName '.' TypeArguments IDENTIFIER '(' ')'
+				| ExpressionName '.' TypeArguments IDENTIFIER '(' ')'
+				| Primary '.' TypeArguments IDENTIFIER '(' ')'
+				| super '.' TypeArguments IDENTIFIER '(' ')'
+				| TypeName '.' super '.' TypeArguments IDENTIFIER '(' ')'
+				| TypeName '.' IDENTIFIER '(' ArgumentList ')'
+				| ExpressionName '.' IDENTIFIER '(' ArgumentList ')'
+				| Primary '.' IDENTIFIER '(' ArgumentList ')'
+				| super '.' IDENTIFIER '(' ArgumentList ')'
+				| TypeName '.' super '.' IDENTIFIER '(' ArgumentList ')'
+				| TypeName '.' IDENTIFIER '(' ')'
+				| ExpressionName '.' IDENTIFIER '(' ')'
+				| Primary '.' IDENTIFIER '(' ')'
+				| super '.' IDENTIFIER '(' ')'
+				| TypeName '.' super '.' IDENTIFIER '(' ')'
                 ;
 ArgumentList	:	ArgumentList ',' Expression 
 				| Expression
                 ;
-MethodReference	: ExpressionName ':' ':' TA IDENTIFIER
-				| Primary ':' ':' TA IDENTIFIER
-				| ReferenceType ':' ':' TA IDENTIFIER
-				| super ':' ':' TA IDENTIFIER
-				| TypeName '.' super ':' ':' TA IDENTIFIER
-				| ClassType ':' ':' TA NEW
-				| ArrayType ':' ':' NEW
+MethodReference	: ExpressionName scope IDENTIFIER
+				| Primary scope IDENTIFIER
+				| ReferenceType scope IDENTIFIER
+				| super scope IDENTIFIER
+				| TypeName '.' super scope IDENTIFIER
+				| ClassType scope NEW
+				| ArrayType scope NEW
+				| ExpressionName scope TypeArguments IDENTIFIER
+				| Primary scope TypeArguments IDENTIFIER
+				| ReferenceType scope TypeArguments IDENTIFIER
+				| super scope TypeArguments IDENTIFIER
+				| TypeName '.' super scope TypeArguments IDENTIFIER
+				| ClassType scope TypeArguments NEW
                 ;
 ArrayCreationExpression	: NEW PrimitiveType DimExprs Dims
 					| NEW PrimitiveType DimExprs
@@ -342,8 +368,9 @@ LPL	    : LPL ',' LambdaParameter
 IL  	: IL ',' IDENTIFIER
 		| IDENTIFIER
         ;
-LambdaParameter	: VM LambdaParameterType VariableDeclaratorId
-				| VariableArityParameter
+LambdaParameter	: LambdaParameterType VariableDeclaratorId
+				| UnannType Ann dots Identifier
+				| VariableModifier LambdaParameter
                 ;
 LambdaParameterType	: UnannType
 					| var
@@ -360,27 +387,15 @@ LeftHandSide	: ExpressionName
 				| FieldAccess
 				| ArrayAccess
                 ;
-AssignmentOperator: '='
-				| '*' '=' 	
-				|  '/' '='  
-				| '%' '='  
-				| '+' '=' 
-				|  '-' '='  
-				| '<' '<' '='  
-				| '>' '>' '='  
-				| '>' '>' '>' '='  
-				| '&' '='  
-				| '^' '='  
-				| '|' '='
-                ;
 ConditionalExpression	: ConditionalOrExpression
 			| ConditionalOrExpression '?' Expression ':' ConditionalExpression
 			| ConditionalOrExpression '?' Expression ':' LambdaExpression
             ;
 ConditionalOrExpression	: ConditionalAndExpression
-				| ConditionalOrExpression '|' '|' ConditionalAndExpression
+				| ConditionalOrExpression relor ConditionalAndExpression
+                ;
 ConditionalAndExpression	: InclusiveOrExpression
-				| ConditionalAndExpression '&' '&' InclusiveOrExpression
+				| ConditionalAndExpression reland InclusiveOrExpression
                 ;
 InclusiveOrExpression	: ExclusiveOrExpression
 					| InclusiveOrExpression '|' ExclusiveOrExpression
@@ -392,23 +407,18 @@ AndExpression   : EqualityExpression
 				| AndExpression '&' EqualityExpression
                 ;
 EqualityExpression	: RelationalExpression
-				| EqualityExpression '=' '=' RelationalExpression
-				| EqualityExpression '!' '=' RelationalExpression
+				| EqualityExpression releq RelationalExpression
+				| EqualityExpression relnoteq RelationalExpression
                 ;
 RelationalExpression	:	ShiftExpression
-					| RelationalExpression '<' ShiftExpression
-					| RelationalExpression '>' ShiftExpression
-					| RelationalExpression '<' '=' ShiftExpression
-					| RelationalExpression '>' '=' ShiftExpression
+					| RelationalExpression relgl ShiftExpression
 					| InstanceofExpression
                     ;
 InstanceofExpression	: RelationalExpression instanceof ReferenceType
 					| RelationalExpression instanceof Pattern
                     ;
 ShiftExpression : AdditiveExpression
-				| ShiftExpression '<' '<' AdditiveExpression
-				| ShiftExpression '>' '>' AdditiveExpression
-				| ShiftExpression '>' '>' '>' AdditiveExpression
+				| ShiftExpression shift AdditiveExpression
                 ;
 AdditiveExpression	: MultiplicativeExpression
 				| AdditiveExpression '+' MultiplicativeExpression
@@ -425,9 +435,9 @@ UnaryExpression	: PreIncrementExpression
 				| '-' UnaryExpression
 				| UnaryExpressionNotPlusMinus
                 ;
-PreIncrementExpression	: '+' '+' UnaryExpression
+PreIncrementExpression	: inc UnaryExpression
                         ;
-PreDecrementExpression	: '-' '-' UnaryExpression
+PreDecrementExpression	: dec UnaryExpression
                         ;
 UnaryExpressionNotPlusMinus	: PostfixExpression
 						| '~' UnaryExpression
@@ -440,9 +450,9 @@ PostfixExpression	: Primary
 				| PostIncrementExpression
 				| PostDecrementExpression
                 ;
-PostIncrementExpression	: PostfixExpression '+' '+'
+PostIncrementExpression	: PostfixExpression inc
                         ;
-PostDecrementExpression	: PostfixExpression '-' '-'
+PostDecrementExpression	: PostfixExpression dec
                         ;
 CastExpression	: '(' PrimitiveType ')' UnaryExpression
 			| '(' ReferenceType AB ')' UnaryExpressionNotPlusMinus
