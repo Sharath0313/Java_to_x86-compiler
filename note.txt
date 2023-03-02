@@ -1,3 +1,11 @@
 All names are taken under AmbigousName except MethodName
 
 MethodName is treated as Identifier only.
+
+ClassOrInterfaceType = ClassType + InterfaceType
+
+ClassOrInterfaceTypeF -> Identifier (removed)
+
+UnannClassOrInterfaceType = UnannClassType + InterfaceType
+
+UnannClassOrInterfaceTypeF  -> IDENTIFIER (removed)

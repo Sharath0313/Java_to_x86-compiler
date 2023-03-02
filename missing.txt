@@ -1,8 +1,0 @@
-TypeParameters
-InterfaceTypeList
-ClassDeclaration
-UnannType
-VariableDeclaratorList
-MethodHeader
-MethodBody
-ConditionalExpression

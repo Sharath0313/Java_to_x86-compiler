@@ -1,0 +1,175 @@
+S' -> S 
+S -> Primary
+Primary 	-> PrimaryNoNewArray
+Primary 			-> ArrayCreationExpression
+PrimaryNoNewArray	-> Literal
+PrimaryNoNewArray				-> ClassLiteral
+PrimaryNoNewArray				-> THIS
+PrimaryNoNewArray				-> TypeName . THIS
+PrimaryNoNewArray				-> ( Expression )
+PrimaryNoNewArray				-> ClassInstanceCreationExpression
+PrimaryNoNewArray				-> FieldAccess
+PrimaryNoNewArray				-> ArrayAccess
+PrimaryNoNewArray				-> MethodInvocation
+PrimaryNoNewArray				-> MethodReference
+ClassLiteral   	-> TypeName SqBrackets . CLASS
+ClassLiteral 			-> NumericType SqBrackets . CLASS
+ClassLiteral 			-> boolean SqBrackets . CLASS
+ClassLiteral   	-> TypeName . CLASS
+ClassLiteral 			-> NumericType . CLASS
+ClassLiteral 			-> boolean . CLASS
+ClassLiteral 			-> VOID . CLASS
+SqBrackets	-> SqBrackets [ ]
+SqBrackets			->  [ ]
+ClassInstanceCreationExpression -> UnqualifiedClassInstanceCreationExpression
+ClassInstanceCreationExpression	                            -> ExpressionName . UnqualifiedClassInstanceCreationExpression
+ClassInstanceCreationExpression	                            -> Primary . UnqualifiedClassInstanceCreationExpression     
+UnqualifiedClassInstanceCreationExpression  -> NEW TypeArguments ClassOrInterfaceTypeToInstantiate ( ArgumentList ) ClassBody
+UnqualifiedClassInstanceCreationExpression  -> NEW ClassOrInterfaceTypeToInstantiate ( ArgumentList ) ClassBody
+UnqualifiedClassInstanceCreationExpression  -> NEW TypeArguments ClassOrInterfaceTypeToInstantiate ( ) ClassBody
+UnqualifiedClassInstanceCreationExpression  -> NEW TypeArguments ClassOrInterfaceTypeToInstantiate ( ArgumentList ) 
+UnqualifiedClassInstanceCreationExpression  -> NEW TypeArguments ClassOrInterfaceTypeToInstantiate ( ) 
+UnqualifiedClassInstanceCreationExpression  -> NEW ClassOrInterfaceTypeToInstantiate ( ArgumentList ) 
+UnqualifiedClassInstanceCreationExpression  -> NEW ClassOrInterfaceTypeToInstantiate ( ) ClassBody
+UnqualifiedClassInstanceCreationExpression  -> NEW ClassOrInterfaceTypeToInstantiate ( ) 
+ClassOrInterfaceTypeToInstantiate   -> Ann IDENTIFIER AnnI TypeArgumentsOrDiamond
+ClassOrInterfaceTypeToInstantiate	                                -> Ann IDENTIFIER AnnI                       
+Ann 	-> Ann Annotation
+Ann 		->  ''
+AnnI	-> AnnI . Ann IDENTIFIER
+AnnI		->  ''
+TypeArgumentsOrDiamond	-> TypeArguments
+TypeArgumentsOrDiamond					-> < >  
+FieldAccess	-> Primary . IDENTIFIER
+FieldAccess			-> super . IDENTIFIER
+FieldAccess			-> TypeName . super . IDENTIFIER
+ArrayAccess	-> ExpressionName [ Expression ]
+ArrayAccess			-> PrimaryNoNewArray [ Expression ]
+MethodInvocation	-> MethodName ( ArgumentList )
+MethodInvocation				-> TypeName . TypeArguments IDENTIFIER ( ArgumentList )
+MethodInvocation				-> ExpressionName . TypeArguments IDENTIFIER ( ArgumentList )
+MethodInvocation				-> Primary . TypeArguments IDENTIFIER ( ArgumentList )
+MethodInvocation				-> super . TypeArguments IDENTIFIER ( ArgumentList )
+MethodInvocation				-> TypeName . super . TypeArguments IDENTIFIER ( ArgumentList )
+MethodInvocation				-> TypeName . IDENTIFIER ( ArgumentList )
+MethodInvocation				-> ExpressionName . IDENTIFIER ( ArgumentList )
+MethodInvocation				-> Primary . IDENTIFIER ( ArgumentList )
+MethodInvocation				-> super . IDENTIFIER ( ArgumentList )
+MethodInvocation				-> TypeName . super . IDENTIFIER ( ArgumentList )
+MethodInvocation	-> MethodName ( )
+MethodInvocation				-> TypeName . TypeArguments IDENTIFIER ( )
+MethodInvocation				-> ExpressionName . TypeArguments IDENTIFIER ( )
+MethodInvocation				-> Primary . TypeArguments IDENTIFIER ( )
+MethodInvocation				-> super . TypeArguments IDENTIFIER ( )
+MethodInvocation				-> TypeName . super . TypeArguments IDENTIFIER ( )
+MethodInvocation				-> TypeName . IDENTIFIER ( )
+MethodInvocation				-> ExpressionName . IDENTIFIER ( )
+MethodInvocation				-> Primary . IDENTIFIER ( )
+MethodInvocation				-> super . IDENTIFIER ( )
+MethodInvocation				-> TypeName . super . IDENTIFIER ( )
+ArgumentList	->	ArgumentList , Expression 
+ArgumentList				-> Expression
+MethodReference	-> ExpressionName scope TypeArguments IDENTIFIER
+MethodReference				-> Primary scope TypeArguments IDENTIFIER
+MethodReference				-> ReferenceType scope TypeArguments IDENTIFIER
+MethodReference				-> super scope TypeArguments IDENTIFIER
+MethodReference				-> TypeName . super scope TypeArguments IDENTIFIER
+MethodReference				-> ClassType scope TypeArguments NEW
+MethodReference	-> ExpressionName scope IDENTIFIER
+MethodReference				-> Primary scope IDENTIFIER
+MethodReference				-> ReferenceType scope IDENTIFIER
+MethodReference				-> super scope IDENTIFIER
+MethodReference				-> TypeName . super scope IDENTIFIER
+MethodReference				-> ClassType scope NEW
+MethodReference				-> ArrayType scope NEW
+ArrayCreationExpression	-> NEW PrimitiveType DimExprs Dims
+ArrayCreationExpression					-> NEW PrimitiveType DimExprs
+ArrayCreationExpression					->  NEW ClassOrInterfaceType DimExprs Dims
+ArrayCreationExpression					->  NEW ClassOrInterfaceType DimExprs 
+ArrayCreationExpression					-> NEW PrimitiveType Dims ArrayInitializer
+ArrayCreationExpression					-> NEW ClassOrInterfaceType Dims ArrayInitializer   
+DimExprs	-> DimExprs DimExpr
+DimExprs			-> DimExpr
+DimExpr	    -> Ann [ Expression ]
+Expression	-> LambdaExpression
+Expression			-> AssignmentExpression
+LambdaExpression	-> LambdaParameters arrow LambdaBody
+LambdaParameters	-> ( LambdaParameterList )
+LambdaParameters				-> ( )
+LambdaParameters				-> IDENTIFIER
+LambdaParameterList	-> LPL
+LambdaParameterList					-> IL
+LPL	    -> LPL , LambdaParameter
+LPL			-> LambdaParameterSL  
+IL  	-> IL , IDENTIFIER
+IL 		-> IDENTIFIER
+LambdaParameter	-> LambdaParameterType VariableDeclaratorId
+LambdaParameter	-> UnannType Annotations dots Identifier
+LambdaParameter	-> VariableModifier LambdaParameter
+LambdaParameterType	-> UnannType
+LambdaParameterType					-> var
+LambdaBody	-> Expression
+LambdaBody			-> Block
+AssignmentExpression	-> ConditionalExpression
+AssignmentExpression					-> Assignment
+Assignment	-> LeftHandSide AssignmentOperator Expression
+LeftHandSide	-> ExpressionName
+LeftHandSide				-> FieldAccess
+LeftHandSide				-> ArrayAccess
+ConditionalExpression	-> ConditionalOrExpression
+ConditionalExpression			-> ConditionalOrExpression ? Expression : ConditionalExpression
+ConditionalExpression			-> ConditionalOrExpression ? Expression : LambdaExpression
+ConditionalOrExpression	-> ConditionalAndExpression
+ConditionalOrExpression					-> ConditionalOrExpression relor ConditionalAndExpression
+ConditionalAndExpression	-> InclusiveOrExpression
+ConditionalAndExpression				-> ConditionalAndExpression reland InclusiveOrExpression
+InclusiveOrExpression	-> ExclusiveOrExpression
+InclusiveOrExpression					-> InclusiveOrExpression | ExclusiveOrExpression
+ExclusiveOrExpression	-> AndExpression
+ExclusiveOrExpression					-> ExclusiveOrExpression ^ AndExpression
+AndExpression   -> EqualityExpression
+AndExpression				-> AndExpression & EqualityExpression
+EqualityExpression	-> RelationalExpression
+EqualityExpression				-> EqualityExpression releq RelationalExpression
+EqualityExpression				-> EqualityExpression relnoteq RelationalExpression
+RelationalExpression	->	ShiftExpression
+RelationalExpression					-> RelationalExpression relgl ShiftExpression
+RelationalExpression					-> InstanceofExpression
+InstanceofExpression	-> RelationalExpression instanceof ReferenceType
+InstanceofExpression					-> RelationalExpression instanceof Pattern
+ShiftExpression -> AdditiveExpression
+ShiftExpression				-> ShiftExpression shift AdditiveExpression
+AdditiveExpression	-> MultiplicativeExpression
+AdditiveExpression				-> AdditiveExpression + MultiplicativeExpression
+AdditiveExpression				-> AdditiveExpression - MultiplicativeExpression
+MultiplicativeExpression	-> UnaryExpression
+MultiplicativeExpression					-> MultiplicativeExpression * UnaryExpression
+MultiplicativeExpression					-> MultiplicativeExpression / UnaryExpression
+MultiplicativeExpression					-> MultiplicativeExpression % UnaryExpression
+UnaryExpression	-> PreIncrementExpression
+UnaryExpression					-> PreDecrementExpression
+UnaryExpression					-> + UnaryExpression
+UnaryExpression					-> - UnaryExpression
+UnaryExpression					-> UnaryExpressionNotPlusMinus
+PreIncrementExpression	-> inc UnaryExpression
+PreDecrementExpression	-> dec UnaryExpression
+UnaryExpressionNotPlusMinus	-> PostfixExpression
+UnaryExpressionNotPlusMinus						-> ~ UnaryExpression
+UnaryExpressionNotPlusMinus						-> ! UnaryExpression
+UnaryExpressionNotPlusMinus						-> CastExpression
+UnaryExpressionNotPlusMinus						-> SwitchExpression
+PostfixExpression	-> Primary
+PostfixExpression				-> ExpressionName
+PostfixExpression				-> PostIncrementExpression
+PostfixExpression				-> PostDecrementExpression
+PostIncrementExpression	-> PostfixExpression inc
+PostDecrementExpression	-> PostfixExpression dec
+CastExpression	-> ( PrimitiveType ) UnaryExpression
+CastExpression			-> ( ReferenceType AB ) UnaryExpressionNotPlusMinus
+CastExpression			-> ( ReferenceType AB ) LambdaExpression
+CastExpression			-> ( ReferenceType ) UnaryExpressionNotPlusMinus
+CastExpression			-> ( ReferenceType ) LambdaExpression
+AB	-> AB AdditionalBound
+AB		-> AdditionalBound
+SwitchExpression	-> SWITCH ( Expression ) SwitchBlock       
+ConstantExpression	-> Expression

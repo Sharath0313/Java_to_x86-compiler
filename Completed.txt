@@ -1,0 +1,514 @@
+S' -> S 
+S -> InterfaceDeclaration
+S -> Type
+S -> ClassDeclaration
+S -> Block
+Literal -> INT_LITERAL
+Literal -> FLOAT_LITERAL
+Literal -> CHAR_LITERAL
+Literal -> BOOL_LITERAL
+Literal -> STRING_LITERAL
+Literal -> NULL_LITERAL
+Literal -> TEXT_BLOCK
+AmbigousName    -> IDENTIFIER
+AmbigousName    -> AmbigousName . IDENTIFIER
+Annotations     -> ''
+Annotations     -> Annotations Annotation
+InterfaceDeclaration    -> NormalInterfaceDeclaration
+InterfaceDeclaration    -> AnnotationInterfaceDeclaration
+NormalInterfaceDeclaration  -> INTERFACE IDENTIFIER InterfaceBody
+NormalInterfaceDeclaration  -> INTERFACE IDENTIFIER TypeParameters InterfaceBody
+NormalInterfaceDeclaration  -> INTERFACE IDENTIFIER InterfaceExtends InterfaceBody
+NormalInterfaceDeclaration  -> INTERFACE IDENTIFIER TypeParameters InterfaceExtends InterfaceBody
+NormalInterfaceDeclaration  -> INTERFACE IDENTIFIER InterfacePermits InterfaceBody
+NormalInterfaceDeclaration  -> INTERFACE IDENTIFIER TypeParameters InterfacePermits InterfaceBody
+NormalInterfaceDeclaration  -> INTERFACE IDENTIFIER InterfaceExtends InterfacePermits InterfaceBody
+NormalInterfaceDeclaration  -> INTERFACE IDENTIFIER TypeParameters InterfaceExtends InterfacePermits InterfaceBody
+NormalInterfaceDeclaration  -> Annotation NormalInterfaceDeclaration
+NormalInterfaceDeclaration  -> PUBLIC NormalInterfaceDeclaration
+NormalInterfaceDeclaration  -> PRIVATE NormalInterfaceDeclaration
+NormalInterfaceDeclaration  -> PROTECTED NormalInterfaceDeclaration
+NormalInterfaceDeclaration  -> ABSTRACT NormalInterfaceDeclaration
+NormalInterfaceDeclaration  -> STATIC NormalInterfaceDeclaration
+NormalInterfaceDeclaration  -> SEALED NormalInterfaceDeclaration
+NormalInterfaceDeclaration  -> NON-SEALED NormalInterfaceDeclaration
+NormalInterfaceDeclaration  -> STRICTFP NormalInterfaceDeclaration
+InterfaceExtends    -> EXTENDS InterfaceTypeList
+InterfacePermits    -> PERMITS AmbigousName
+InterfacePermits    -> InterfacePermits , AmbigousName
+InterfaceBody       -> { InterfaceMemberDeclarations }
+InterfaceMemberDeclarations -> ''
+InterfaceMemberDeclarations -> InterfaceMemberDeclarations InterfaceMemberDeclaration
+InterfaceMemberDeclaration  -> ConstantDeclaration
+InterfaceMemberDeclaration  -> InterfaceMethodDeclaration
+InterfaceMemberDeclaration  -> ClassDeclaration
+InterfaceMemberDeclaration  -> InterfaceDeclaration
+InterfaceMemberDeclaration  -> ;
+ConstantDeclaration     -> UnannType VariableDeclaratorList ;
+ConstantDeclaration     -> Annotation ConstantDeclaration
+ConstantDeclaration     -> PUBLIC ConstantDeclaration
+ConstantDeclaration     -> STATIC ConstantDeclaration
+ConstantDeclaration     -> FINAL ConstantDeclaration
+InterfaceMethodDeclaration  -> MethodHeader MethodBody
+InterfaceMethodDeclaration  -> Annotation InterfaceMethodDeclaration
+InterfaceMethodDeclaration  -> PUBLIC InterfaceMethodDeclaration
+InterfaceMethodDeclaration  -> PRIVATE InterfaceMethodDeclaration
+InterfaceMethodDeclaration  -> ABSTRACT InterfaceMethodDeclaration
+InterfaceMethodDeclaration  -> DEFAULT InterfaceMethodDeclaration
+InterfaceMethodDeclaration  -> STATIC InterfaceMethodDeclaration
+InterfaceMethodDeclaration  -> STRICTFP InterfaceMethodDeclaration
+AnnotationInterfaceDeclaration  -> @ INTERFACE IDENTIFIER AnnotationInterfaceBody
+AnnotationInterfaceDeclaration  -> Annotation AnnotationInterfaceDeclaration
+AnnotationInterfaceDeclaration  -> PUBLIC AnnotationInterfaceDeclaration
+AnnotationInterfaceDeclaration  -> PRIVATE AnnotationInterfaceDeclaration
+AnnotationInterfaceDeclaration  -> PROTECTED AnnotationInterfaceDeclaration
+AnnotationInterfaceDeclaration  -> ABSTRACT AnnotationInterfaceDeclaration
+AnnotationInterfaceDeclaration  -> STATIC AnnotationInterfaceDeclaration
+AnnotationInterfaceDeclaration  -> SEALED AnnotationInterfaceDeclaration
+AnnotationInterfaceDeclaration  -> NON-SEALED AnnotationInterfaceDeclaration
+AnnotationInterfaceDeclaration  -> STRICTFP AnnotationInterfaceDeclaration
+AnnotationInterfaceBody     -> { AnnotationInterfaceMemberDeclarations }
+AnnotationInterfaceMemberDeclarations   -> ''
+AnnotationInterfaceMemberDeclarations   -> AnnotationInterfaceMemberDeclarations AnnotationInterfaceMemberDeclaration
+AnnotationInterfaceMemberDeclaration    -> ConstantDeclaration
+AnnotationInterfaceMemberDeclaration    -> ClassDeclaration
+AnnotationInterfaceMemberDeclaration    -> InterfaceDeclaration
+AnnotationInterfaceMemberDeclaration    -> AnnotationInterfaceElementDeclaration
+AnnotationInterfaceElementDeclaration   -> UnannType IDENTIFIER ( ) ;
+AnnotationInterfaceElementDeclaration   -> UnannType IDENTIFIER ( ) Dims ;
+AnnotationInterfaceElementDeclaration   -> UnannType IDENTIFIER ( ) DefaultValue ;
+AnnotationInterfaceElementDeclaration   -> UnannType IDENTIFIER ( ) Dims DefaultValue ;
+AnnotationInterfaceElementDeclaration   -> Annotation AnnotationInterfaceElementDeclaration
+AnnotationInterfaceElementDeclaration   -> PUBLIC AnnotationInterfaceElementDeclaration
+AnnotationInterfaceElementDeclaration   -> ABSTRACT AnnotationInterfaceElementDeclaration
+DefaultValue        -> DEFAULT ElementValue
+Annotation          -> NormalAnnotation
+Annotation          -> MarkerAnnotation
+Annotation          -> SingleElementAnnotation
+NormalAnnotation    -> @ AmbigousName ( )
+NormalAnnotation    -> @ AmbigousName ( ElementValuePairList )
+ElementValuePairList    -> ElementValuePair
+ElementValuePairList    -> ElementValuePairList ElementValuePair
+ElementValuePair    -> IDENTIFIER = ElementValue
+ElementValue        -> ConditionalExpression
+ElementValue        -> ElementValueArrayInitializer
+ElementValue        -> Annotation
+ElementValueArrayInitializer    -> { }
+ElementValueArrayInitializer    -> { ElementValueList }
+ElementValueArrayInitializer    -> { , }
+ElementValueArrayInitializer    -> { ElementValueList , }
+ElementValueList    -> ElementValue
+ElementValueList    -> ElementValueList ElementValue
+MarkerAnnotation    -> @ AmbigousName
+SingleElementAnnotation     -> @ AmbigousName ( ElementValue )  
+Type -> PrimitiveType
+Type -> ReferenceType
+PrimitiveType   -> boolean
+PrimitiveType   -> NumericType
+PrimitiveType   -> Annotation PrimitiveType
+NumericType     -> INTEGRALTYPE
+NumericType     -> FLOATINGPOINTTYPE 
+ReferenceType   -> ClassOrInterfaceType
+ReferenceType   -> ArrayType
+ClassOrInterfaceType    -> ClassOrInterfaceTypeF
+ClassOrInterfaceType    -> ClassOrInterfaceTypeM
+ClassOrInterfaceTypeF       -> IDENTIFIER TypeArguments
+ClassOrInterfaceTypeF       -> Annotation ClassOrInterfaceTypeF
+ClassOrInterfaceTypeM       -> AmbigousName . ClassOrInterfaceTypeF
+ClassOrInterfaceTypeM       -> ClassOrInterfaceType . ClassOrInterfaceTypeF
+TypeVariable    -> IDENTIFIER
+TypeVariable    -> Annotation TypeVariable
+ArrayType       -> PrimitiveType Dims
+ArrayType       -> ClassOrInterfaceType Dims
+DimsA           ->  [ ]
+DimsA           -> Annotation DimsA
+Dims            -> DimsA
+Dims            -> Dims DimsA
+TypeParameter   -> IDENTIFIER
+TypeParameter   -> IDENTIFIER TypeBound
+TypeParameter   -> Annotation TypeParameter
+TypeBound       -> EXTENDS TypeVariable
+TypeBound       -> EXTENDS ClassOrInterfaceType
+TypeBound       -> EXTENDS ClassOrInterfaceType AdditionBounds
+AdditionBounds  -> & ClassOrInterfaceType
+AdditionBounds  -> AdditionBounds & ClassOrInterfaceType
+TypeArguments   -> < TypeArgumentList >
+TypeArgumentList    -> TypeArgument
+TypeArgumentList    -> TypeArgumentList , TypeArgument
+TypeArgument    -> ReferenceType
+TypeArgument    -> WildCard 
+WildCard        -> ?
+WildCard        -> WildCardBounds
+WildCard        -> Annotation WildCard
+WildCardBounds  -> EXTENDS ReferenceType
+WildCardBounds  -> SUPER ReferenceType
+ArrayInitializer    -> { }
+ArrayInitializer                    -> { VariableInitializerList }
+ArrayInitializer                    -> { , }
+ArrayInitializer    -> { VariableInitializerList , }
+VariableInitializerList -> VariableInitializer
+VariableInitializerList                        -> VariableInitializerList , VariableInitializer
+ClassDeclaration    -> NormalClassDeclaration
+ClassDeclaration                     -> EnumDeclaration
+ClassDeclaration                     -> RecordDeclaration
+NormalClassDeclaration                        -> CLASS IDENTIFIER ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER TypeParameters ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER ClassExtends ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER TypeParameters ClassExtends ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER ClassImplements ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER TypeParameters ClassImplements ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER ClassExtends ClassImplements ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER TypeParameters ClassExtends ClassImplements ClassBody 
+NormalClassDeclaration                        -> CLASS IDENTIFIER ClassPermits ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER TypeParameters ClassPermits ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER ClassExtends ClassPermits ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER TypeParameters ClassExtends ClassPermits ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER ClassImplements ClassPermits ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER TypeParameters ClassImplements ClassPermits ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER ClassExtends ClassImplements ClassPermits ClassBody
+NormalClassDeclaration                        -> CLASS IDENTIFIER TypeParameters ClassExtends ClassImplements ClassPermits ClassBody
+NormalClassDeclaration                        -> Annotation NormalClassDeclaration
+NormalClassDeclaration                        -> PUBLIC NormalClassDeclaration
+NormalClassDeclaration                        -> PRIVATE NormalClassDeclaration
+NormalClassDeclaration                        -> PROTECTED NormalClassDeclaration
+NormalClassDeclaration                        -> ABSTRACT NormalClassDeclaration
+NormalClassDeclaration                        -> STATIC NormalClassDeclaration
+NormalClassDeclaration                        -> FINAL NormalClassDeclaration
+NormalClassDeclaration                        -> SEALED NormalClassDeclaration
+NormalClassDeclaration                        -> NON-SEALED NormalClassDeclaration
+NormalClassDeclaration                        -> STRICTFP NormalClassDeclaration
+TypeParameters  -> < TypeParameterList >
+TypeParameterList   -> TypeParameter
+TypeParameterList                    -> TypeParameterList , TypeParameter
+ClassExtends    -> EXTENDS ClassOrInterfaceType
+ClassImplements -> IMPLEMENTS ClassOrInterfaceType
+InterfaceTypeList   -> ClassOrInterfaceType
+InterfaceTypeList                    -> InterfaceTypeList , ClassOrInterfaceType
+ClassPermits    -> PERMITS AmbigousName
+ClassPermits                -> ClassPermits , AmbigousName
+ClassBody   -> { }
+ClassBody   -> { ClassBodyDeclarations }
+ClassBodyDeclarations                        -> ClassBodyDeclarations ClassBodyDeclaration
+ClassBodyDeclaration    -> ClassMemberDeclaration
+ClassBodyDeclaration                        -> InstanceInitializer
+ClassBodyDeclaration                       -> StaticInitializer
+ClassBodyDeclaration                        -> ConstructorDeclaration
+ClassMemberDeclaration  -> FieldDeclaration
+ClassMemberDeclaration                         -> MethodDeclaration
+ClassMemberDeclaration                         -> ClassDeclaration
+ClassMemberDeclaration                         -> InterfaceDeclaration
+ClassMemberDeclaration                         -> ;
+FieldDeclaration    -> UnannType VariableDeclarationList ;
+FieldDeclaration                     -> Annotation FieldDeclaration
+FieldDeclaration                     -> PUBLIC FieldDeclaration
+FieldDeclaration                     -> PRIVATE FieldDeclaration
+FieldDeclaration                     -> PROTECTED FieldDeclaration
+FieldDeclaration                     -> STATIC FieldDeclaration
+FieldDeclaration                     -> FINAL FieldDeclaration
+FieldDeclaration                     -> TRANSIENT FieldDeclaration
+FieldDeclaration                     -> VOLATILE FieldDeclaration
+VariableDeclarationList -> VariableDeclarator
+VariableDeclarationList                        -> VariableDeclarationList , VariableDeclarator
+VariableDeclarator  -> VariableDeclaratorId
+VariableDeclarator                    -> VariableDeclaratorId = VariableInitializer
+VariableDeclaratorId    -> IDENTIFIER
+VariableDeclaratorId    -> IDENTIFIER Dims
+VariableInitializer -> Expression
+VariableInitializer                    -> ArrayInitializer
+UnannType   -> UnannPrimitiveType
+UnannType   -> UnannReferenceType
+UnannPrimitiveType  -> NumericType
+UnannPrimitiveType  -> BOOLEAN
+UnannReferenceType  -> UnannClassOrInterfaceType
+UnannReferenceType                    -> UnannArrayType
+UnannClassOrInterfaceType -> UnannClassOrInterfaceTypeF
+UnannClassOrInterfaceType -> UnannClassOrInterfaceTypeM
+UnannClassOrInterfaceTypeF   -> IDENTIFIER TypeArguments
+UnannClassOrInterfaceTypeMR  -> UnannClassOrInterfaceTypeF
+UnannClassOrInterfaceTypeMR  -> Annotation UnannClassOrInterfaceTypeF
+UnannClassOrInterfaceTypeM            -> AmbigousName . UnannClassOrInterfaceTypeMR
+UnannClassOrInterfaceTypeM               -> UnannClassOrInterfaceType . UnannClassOrInterfaceTypeMR
+UnannArrayType  -> UnannPrimitiveType Dims
+UnannArrayType                -> UnannClassOrInterfaceType Dims
+MethodDeclaration   -> MethodHeader MethodBody
+MethodDeclaration                    -> Annotation MethodDeclaration
+MethodDeclaration                    -> PUBLIC MethodDeclaration
+MethodDeclaration                    -> PRIVATE MethodDeclaration
+MethodDeclaration                    -> ABSTRACT MethodDeclaration
+MethodDeclaration                    -> STATIC MethodDeclaration
+MethodDeclaration                    -> FINAL MethodDeclaration
+MethodDeclaration                    -> SYNCHRONIZED MethodDeclaration
+MethodDeclaration                    -> NATIVE MethodDeclaration
+MethodDeclaration                    -> STRICTFP MethodDeclaration
+MethodHeader    -> UnannType MethodDeclarator 
+MethodHeader    -> UnannType MethodDeclarator THROWS
+MethodHeader    -> VOID MethodDeclarator 
+MethodHeader    -> VOID MethodDeclarator THROWS
+MethodHeaderR  -> TypeParameter MethodHeaderR
+MethodHeaderR               -> UnannType MethodDeclarator
+MethodHeaderR               -> UnannType MethodDeclarator THROWS
+MethodHeaderR               -> VOID MethodDeclarator
+MethodHeaderR               -> VOID MethodDeclarator THROWS
+MethodHeaderR               -> UnannType MethodDeclarator
+MethodHeaderR               -> Annotation MethodHeaderR
+MethodDeclarator    -> IDENTIFIER ( )
+MethodDeclarator                    -> IDENTIFIER ( ReceiverParameter , )
+MethodDeclarator                    -> IDENTIFIER ( ReceiverParameter , FormalParameterList )
+MethodDeclarator                    -> IDENTIFIER ( ) Dims
+MethodDeclarator                    -> IDENTIFIER ( ReceiverParameter , ) Dims
+MethodDeclarator                    -> IDENTIFIER ( ReceiverParameter , FormalParameterList ) Dims
+MethodDeclarator                    -> IDENTIFIER ( FormalParameterList )
+MethodDeclarator                    -> IDENTIFIER ( FormalParameterList ) Dims
+ReceiverParameter   -> UnannType THIS
+ReceiverParameter   -> UnannType IDENTIFIER . THIS
+ReceiverParameter   -> Annotation ReceiverParameter
+FormalParameterList -> FormalParameter
+FormalParameterList                    -> FormalParameterList , FormalParameter
+FormalParameter -> UnannType VariableDeclaratorId
+FormalParameter                -> UnannType Annotations three_dot IDENTIFIER
+FormalParameter                -> Annotation FormalParameter
+FormalParameter                -> FINAL FormalParameter
+Throws  -> THROWS ExceptionTypeList
+ExceptionTypeList   -> ExceptionType
+ExceptionTypeList                    -> ExceptionTypeList , ExceptionType
+ExceptionType   -> ClassOrInterfaceType
+ExceptionType                -> TypeVariable
+MethodBody  -> Block ;
+InstanceInitializer -> Block
+StaticInitializer   -> static Block
+ConstructorDeclaration  -> ConstructorDeclarator ConstructorBody
+ConstructorDeclaration                        -> ConstructorDeclarator THROWS ConstructorBody
+ConstructorDeclaration                        -> Annotation ConstructorDeclaration
+ConstructorDeclaration                        -> PUBLIC ConstructorDeclaration
+ConstructorDeclaration                        -> PRIVATE ConstructorDeclaration
+ConstructorDeclaration                        -> PROTECTED ConstructorDeclaration
+ConstructorDeclarator   -> SimpleTypeName ( )
+ConstructorDeclarator                        -> TypeParameters SimpleTypeName ( )
+ConstructorDeclarator                        -> SimpleTypeName ( ReceiverParameter . )
+ConstructorDeclarator                        -> TypeParameters SimpleTypeName ( ReceiverParameter , )
+ConstructorDeclarator                        -> SimpleTypeName ( FormalParameterList )
+ConstructorDeclarator                        -> TypeParameters SimpleTypeName ( FormalParameterList )
+ConstructorDeclarator                        -> TypeParameters SimpleTypeName ( ReceiverParameter , FormalParameterList )
+ConstructorDeclarator                        -> SimpleTypeName ( ReceiverParameter , FormalParameterList )
+ConstructorBody -> { }
+ConstructorBody                -> { ExplicitConstructorInvocation }
+ConstructorBody                -> { BlockStatements }
+ConstructorBody                -> { ExplicitConstructorInvocation BlockStatements }     
+SimpleTypeName  -> IDENTIFIER
+ExplicitConstructorInvocation   -> THIS ( ) ;
+ExplicitConstructorInvocation   -> THIS ( ArgumentList ) ;
+ExplicitConstructorInvocation   -> TypeArguments THIS ( ArgumentList ) ;
+ExplicitConstructorInvocation   -> TypeArguments THIS ( ) ;
+ExplicitConstructorInvocation   -> SUPER ( ) ;
+ExplicitConstructorInvocation   -> SUPER ( ArgumentList ) ;
+ExplicitConstructorInvocation   -> TypeArguments SUPER ( ArgumentList ) ;
+ExplicitConstructorInvocation   -> TypeArguments SUPER ( ) ;
+ExplicitConstructorInvocation   -> AmbigousName . SUPER ( ) ;
+ExplicitConstructorInvocation   -> AmbigousName . SUPER ( ArgumentList ) ;
+ExplicitConstructorInvocation   -> AmbigousName . TypeArguments SUPER ( ArgumentList ) ;
+ExplicitConstructorInvocation   -> AmbigousName . TypeArguments SUPER ( ) ;
+ExplicitConstructorInvocation   -> Primary . SUPER ( ) ;
+ExplicitConstructorInvocation   -> Primary . SUPER ( ArgumentList ) ;
+ExplicitConstructorInvocation   -> Primary . TypeArguments SUPER ( ArgumentList ) ;
+ExplicitConstructorInvocation   -> Primary . TypeArguments SUPER ( ) ;   
+EnumDeclaration -> ENUM IDENTIFIER EnumBody
+EnumDeclaration                -> ENUM IDENTIFIER ClassImplements EnumBody
+EnumDeclaration                -> Annotation EnumDeclaration    
+EnumDeclaration                -> PUBLIC EnumDeclaration  
+EnumDeclaration                -> PRIVATE EnumDeclaration  
+EnumDeclaration                -> PROTECTED EnumDeclaration  
+EnumDeclaration                -> ABSTRACT EnumDeclaration           
+EnumDeclaration                -> STATIC EnumDeclaration  
+EnumDeclaration                -> FINAL EnumDeclaration  
+EnumDeclaration                -> SEALED EnumDeclaration  
+EnumDeclaration                -> NON-SEALED EnumDeclaration  
+EnumDeclaration                -> STRICTFP EnumDeclaration  
+EnumBody    -> { }
+EnumBody            -> { EnumConstantList }
+EnumBody            -> { EnumConstantList , }
+EnumBody            -> { , }
+EnumBody            -> { EnumConstantList EnumBodyDeclaration }
+EnumBody            -> { EnumConstantList , EnumBodyDeclaration }
+EnumBody            -> { , EnumBodyDeclaration }      
+EnumConstantList    -> EnumConstant
+EnumConstantList                    -> EnumConstantList , EnumConstant               
+EnumConstant    -> IDENTIFIER
+EnumConstant                -> IDENTIFIER ( )
+EnumConstant                -> IDENTIFIER ( ArgumentList )
+EnumConstant                -> IDENTIFIER ClassBody
+EnumConstant                -> IDENTIFIER ( ) ClassBody
+EnumConstant                -> IDENTIFIER ( ArgumentList ) ClassBody
+EnumConstant                -> Annotation EnumConstant         
+EnumBodyDeclaration -> ;
+EnumBodyDeclaration                    -> EnumBodyDeclaration ClassBodyDeclaration           
+RecordDeclaration   -> RECORD IDENTIFIER RecordHeader RecordBody
+RecordDeclaration                    -> RECORD IDENTIFIER TypeParameter RecordHeader RecordBody
+RecordDeclaration                   -> RECORD IDENTIFIER RecordHeader ClassImplements RecordBody
+RecordDeclaration                    -> RECORD IDENTIFIER TypeParameter RecordHeader ClassImplements RecordBody
+RecordDeclaration                    -> Annotation RecordDeclaration
+RecordDeclaration                    -> PUBLIC RecordDeclaration
+RecordDeclaration                    -> PRIVATE RecordDeclaration
+RecordDeclaration                    -> PROTECTED RecordDeclaration
+RecordDeclaration                    -> ABSTRACT RecordDeclaration
+RecordDeclaration                    -> STATIC RecordDeclaration  
+RecordDeclaration                    -> FINAL RecordDeclaration
+RecordDeclaration                    -> SEALED RecordDeclaration
+RecordDeclaration                    -> NON-SEALED RecordDeclaration
+RecordDeclaration                    -> STRICTFP RecordDeclaration            
+RecordHeader    -> ( )
+RecordHeader    -> ( RecordComponentList )            
+RecordComponentList -> RecordComponent
+RecordComponentList                    -> RecordComponentList , RecordComponent           
+RecordComponent -> UnannType IDENTIFIER
+RecordComponent                -> UnannType Annotations three_dot IDENTIFIER
+RecordComponent                -> Annotation RecordComponent            
+RecordBody  -> { }
+RecordBody  -> { RecordBodyDeclarations }
+RecordBodyDeclarations  -> RecordBodyDeclarations RecordBodyDeclaration                 
+RecordBodyDeclaration   -> ClassBodyDeclaration
+RecordBodyDeclaration   -> CompactConstructorDeclaration                  
+CompactConstructorDeclaration   -> SimpleTypeName ConstructorBody
+CompactConstructorDeclaration   -> Annotation CompactConstructorDeclaration
+CompactConstructorDeclaration   -> PUBLIC CompactConstructorDeclaration
+CompactConstructorDeclaration   -> PRIVATE CompactConstructorDeclaration
+CompactConstructorDeclaration   -> PROTECTED CompactConstructorDeclaration   
+Block   -> { BlockStatements } 
+Block	-> { }       
+BlockStatements	-> BlockStatements BlockStatement
+BlockStatements -> BlockStatement              
+BlockStatement 	-> LocalClassOrInterfaceDeclaration
+BlockStatement  -> LocalVariableDeclarationStatement
+BlockStatement  -> Statement               
+LocalClassOrInterfaceDeclaration	-> ClassDeclaration
+LocalClassOrInterfaceDeclaration    -> NormalInterfaceDeclaration        
+LocalVariableDeclarationStatement 	-> LocalVariableDeclaration ;
+LocalVariableDeclaration	-> LocalVariableType VariableDeclaratorList
+LocalVariableDeclaration    -> VariableModifier LocalVariableDeclaration
+LocalVariableType	-> UnannType
+LocalVariableType   -> var
+Statement	-> StatementWithoutTrailingSubstatement
+Statement	-> LabeledStatement
+Statement	-> IfThenStatement
+Statement	-> IfThenElseStatement
+Statement	-> WhileStatement
+Statement	-> ForStatement
+StatementNoShortIf	-> StatementWithoutTrailingSubstatement
+StatementNoShortIf  -> LabeledStatementNoShortIf
+StatementNoShortIf   -> IfThenElseStatementNoShortIf
+StatementNoShortIf -> WhileStatementNoShortIf
+StatementNoShortIf	-> ForStatementNoShortIf
+StatementWithoutTrailingSubstatement	-> Block
+StatementWithoutTrailingSubstatement							-> EmptyStatement
+StatementWithoutTrailingSubstatement							-> ExpressionStatement
+StatementWithoutTrailingSubstatement							-> AssertStatement
+StatementWithoutTrailingSubstatement							-> SwitchStatement
+StatementWithoutTrailingSubstatement							-> DoStatement
+StatementWithoutTrailingSubstatement							-> BreakStatement
+StatementWithoutTrailingSubstatement							-> ContinueStatement
+StatementWithoutTrailingSubstatement							-> ReturnStatement
+StatementWithoutTrailingSubstatement							-> SynchronizedStatement
+StatementWithoutTrailingSubstatement							-> ThrowStatement
+StatementWithoutTrailingSubstatement							-> TryStatement
+StatementWithoutTrailingSubstatement							-> YieldStatement
+EmptyStatement  ->	;
+LabeledStatement	-> IDENTIFIER : Statement
+LabeledStatementNoShortIf	-> IDENTIFIER : StatementNoShortIf
+ExpressionStatement	    -> StatementExpression ;
+StatementExpression     -> Assignment
+StatementExpression 				-> PreIncrementExpression
+StatementExpression 				-> PreDecrementExpression
+StatementExpression 				-> PostIncrementExpression
+StatementExpression 				-> PostDecrementExpression
+StatementExpression 				-> MethodInvocation
+StatementExpression 				-> ClassInstanceCreationExpression
+IfThenStatement ->	IF ( Expression ) Statement
+IfThenElseStatement	-> IF ( Expression ) StatementNoShortIf ELSE Statement
+IfThenElseStatementNoShortIf	-> IF ( Expression ) StatementNoShortIf ELSE StatementNoShortIf
+AssertStatement	-> ASSERT Expression ;
+AssertStatement				-> ASSERT Expression : Expression ;
+SwitchStatement	-> SWITCH ( Expression ) SwitchBlock
+SwitchBlock	-> { SR }
+SwitchBlock				-> { SBSG SL }
+SwitchBlock				-> { SBSG }
+SwitchBlock				-> { SL }
+SwitchBlock				-> { }
+SR  	-> SR SwitchRule
+SR 		-> SwitchRule
+SBSG	-> SwitchBlockStatementGroup
+SBSG	-> SBSG SwitchBlockStatementGroup
+SL  	-> SwitchLabel :
+SL  	-> SL SwitchLabel :
+SwitchRule	-> SwitchLabel arrow Expression ;
+SwitchRule			-> SwitchLabel arrow Block
+SwitchRule			-> SwitchLabel arrow ThrowStatement
+SwitchBlockStatementGroup	-> SL SwitchLabel : BlockStatements
+SwitchLabel	-> CASE CC
+SwitchLabel			-> DEFAULT
+CC  	-> CC , CaseConstant 
+CC 		-> CaseConstant
+CaseConstant	-> ConditionalExpression
+WhileStatement  -> WHILE ( Expression ) Statement
+WhileStatementNoShortIf	-> WHILE ( Expression ) StatementNoShortIf
+DoStatement 	-> DO Statement WHILE ( Expression ) ;
+ForStatement	-> BasicForStatement
+ForStatement	-> EnhancedForStatement
+ForStatementNoShortIf	-> BasicForStatementNoShortIf
+ForStatementNoShortIf					-> EnhancedForStatementNoShortIf
+BasicForStatement	-> FOR ( ; ; ) Statement
+BasicForStatement	-> FOR (  Expression ; ForUpdate ) Statement
+BasicForStatement	-> FOR ( ForInit ; ; ForUpdate ) Statement
+BasicForStatement	-> FOR ( ForInit ; Expression ; ) Statement
+BasicForStatement	-> FOR ( ; ; ForUpdate ) Statement
+BasicForStatement	-> FOR ( ; Expression ; ) Statement
+BasicForStatement	-> FOR ( ForInit ; ; ) Statement
+BasicForStatement	-> FOR ( ForInit ; Expression ; ForUpdate ) Statement 
+BasicForStatementNoShortif	-> FOR ( ; ; ) StatementNoShortif
+BasicForStatementNoShortif	-> FOR (  Expression ; ForUpdate ) StatementNoShortif
+BasicForStatementNoShortif	-> FOR ( ForInit ; ; ForUpdate ) StatementNoShortif
+BasicForStatementNoShortif	-> FOR ( ForInit ; Expression ; ) StatementNoShortif
+BasicForStatementNoShortif	-> FOR ( ; ; ForUpdate ) StatementNoShortif
+BasicForStatementNoShortif	-> FOR ( ; Expression ; ) StatementNoShortif
+BasicForStatementNoShortif	-> FOR ( ForInit ; ; ) StatementNoShortif
+BasicForStatementNoShortif	-> FOR ( ForInit ; Expression ; ForUpdate ) StatementNoShortif           
+ForInit	    -> StatementExpressionList
+ForInit			-> LocalVariableDeclaration
+ForUpdate	-> StatementExpressionList
+StatementExpressionList	-> StatementExpressionList , StatementExpression
+StatementExpressionList					-> StatementExpression
+EnhancedForStatement	-> FOR ( LocalVariableDeclaration : Expression ) Statement
+EnhancedForStatementNoShortIf   -> FOR ( LocalVariableDeclaration : Expression ) StatementNoShortIf
+BreakStatement	-> BREAK IDENTIFIER ;
+BreakStatement				-> BREAK ;
+YieldStatement	-> YIELD Expression ;
+ContinueStatement	-> CONTINUE IDENTIFIER ;
+ContinueStatement				-> CONTINUE ;
+ReturnStatement	-> RETURN Expression ;
+ReturnStatement				-> RETURN ;
+ThrowStatement	-> THROW Expression ;
+SynchronizedStatement	-> SYNCHRONIZED ( Expression ) Block
+TryStatement	-> TRY Block Catches
+TryStatement				-> TRY Block Catches Finally
+TryStatement				-> TRY Block Finally
+TryStatement				-> TryWithResourcesStatement
+Catches	    -> Catches CatchClause
+Catches			-> CatchClause
+CatchClause	-> CATCH ( CatchFormalParameter ) Block
+CatchFormalParameter    -> CatchType VariableDeclaratorId
+CatchFormalParameter    -> VariableModifier CatchFormalParameter
+CatchType	-> UnannClassOrInterfaceType | CT 
+CatchType			-> UnannClassOrInterfaceType  
+CT          -> CT | ClassOrInterfaceType 
+CT           -> ClassOrInterfaceType
+Finally	    -> finally Block
+TryWithResourcesStatement   -> TRY ResourceSpecification Block Catches Finally
+TryWithResourcesStatement					-> TRY ResourceSpecification Block Catches 
+TryWithResourcesStatement					-> TRY ResourceSpecification Block Finally
+TryWithResourcesStatement					-> TRY ResourceSpecification Block 
+ResourceSpecification	-> ( ResourceList ; )
+ResourceSpecification					-> ( ResourceList )
+ResourceList	-> ResourceList ; Resource
+ResourceList			-> Resource
+Resource	-> LocalVariableDeclaration
+Resource			-> VariableAccess
+Pattern	    -> TypePattern
+TypePattern	-> LocalVariableDeclaration 
