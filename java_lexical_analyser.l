@@ -6,6 +6,8 @@
 #include <vector>
 using namespace std;
 
+#include "java_parser.tab.h"
+
 %}
 
 %%
@@ -21,10 +23,6 @@ protected return PROTECTED;
 private return PRIVATE;
 abstract return ABSTRACT;
 static return STATIC;
-sealed return SEALED;
-non-sealed return NON-SEALED;
-strictfp return STRICTFP;
-permits return PERMITS;
 final return FINAL;
 default return DEFAULT;
 class return CLASS;
@@ -32,13 +30,11 @@ implements return IMPLEMENTS;
 throws return THROWS;
 this return THIS;
 synchronized return SYNCHRONIZED;
-enum return ENUM;
 void return VOID;
 switch return SWITCH;
 continue return CONTINUE;
 for return FOR;
 new return NEW;
-assert return ASSERT;
 if return IF;
 do return DO;
 break return BREAK;
@@ -54,26 +50,41 @@ finally return FINALLY;
 volatile return VOLATILE;
 native return NATIVE;
 while return WHILE;
-yield return YIELD;
-record return RECORD;
-var return VAR;
 package return PACKAGE;
 import return IMPORT;
-goto|byte|short|const|_ return KEYWORD;
 null return NULL_LITERAL;
 true|false return BOOL_LITERAL;
-"="|"*="|"/="|"%="|"+="|"-="|"<<="|">>="|">>>="|"&="|"^="|"|=" return ASSIGNMENT_OPERATOR;
+"*="|"/="|"%="|"+="|"-="|"<<="|">>="|">>>="|"&="|"^="|"|=" return ASSIGNMENT_OPERATOR;
 "++" return INC;
 "--" return DEC;
-"::" return SCOPE;
-"..." return DOTS;
 "&&" return RELAND;
 "||" return RELOR;
 "==" return RELEQ;
 "!=" return RELNOTEQ;
 "<<"|">>"|">>>" return SHIFT;
 ">"|"<"|"<="|">=" return RELGL;
-"->" return ARROW;
+; return SEMICOLON;
+"." return DOT;
+"*" return STAR;
+"[" return OSB;
+"]" return CSB;
+"," return COMMA;
+"{" return OCB;
+"}" return CCB;
+"(" return ONB;
+")" return CNB;
+":" return COLON;
+"+" return PLUS;
+"-" return MINUS;
+"~" return NEG;
+"!" return NOT;
+"/" return DIV;
+"%" return MOD;
+"&" return AND;
+"^" return UP;
+"|" return OR;
+"?" return QM;
+"=" return EQ;
 -{0,1}([1-9][0-9]*(l|L){0,1}|[0](l|L){0,1}) return INT_LITERAL;
 -{0,1}(0(x|X)[0-9a-fA-F]+(l|L){0,1}) return INT_LITERAL;
 -{0,1}(0[0-7]+(l|L){0,1}) return INT_LITERAL;
@@ -90,10 +101,8 @@ true|false return BOOL_LITERAL;
 '(\\.|[^'])' return CHAR_LITERAL;
 \"(\\.|[^"\\])*\" return STRING_LITERAL;
 \"\"\"(\\.|\n|[^"]|\"[^"]|\"\"[^"])*[\n|\r|\r\n](\\.|\n|[^"]|\"[^"]|\"\"[^"])*\"\"\" return TEXT_BLOCK;
-[=!?:+/^%]|"~"|[-][>]|={2}|[>][=]|[<][=]|[!][=]|&{1,2}|"|"{1,2}|"+"{1,2}|"-"{1,2}|"*"|<{1,2}|>{1,3}|([+/&^%]|"-"|"*"|"|"|<{2}|>{2,3})= return OPERATOR;
 [_]*[_a-zA-Z][_a-zA-Z0-9]* return IDENTIFIER;
-[(){};,@]|"["|"]"|"."|"."{3}|:{2} return SEPARATOR;
-.  return ERROR;
+. ;
 %%
 
 int yywrap(void){
