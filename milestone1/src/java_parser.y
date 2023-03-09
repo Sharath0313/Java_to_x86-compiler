@@ -477,6 +477,7 @@ ClassBodyDeclarations   : ClassBodyDeclaration      {$$ = $1;}
 ClassBodyDeclaration    : ClassMemberDeclaration    {$$ = $1;}
                         | StaticInitializer         {$$ = $1;}
                         | ConstructorDeclaration    {$$ = $1;}
+                        | ClassDeclaration          {$$ = $1;}
                         ;
 ClassMemberDeclaration  : FieldDeclaration          {$$ = $1;}
                         | MethodDeclaration         {$$ = $1;}
@@ -2080,6 +2081,49 @@ ClassInstanceCreationExpression : NEW ClassType ONB CNB     {outfile << node << 
                                                             outfile << $$ << "->" << n3 << ";" << endl;
                                                             outfile << $$ << "->" << $4 << ";" << endl;
                                                             outfile << $$ << "->" << n5 << ";" << endl;}
+                                | Name DOT NEW ClassType ONB CNB        {outfile << node << "[label=\"" << $2 << "\"];" << endl;
+                                                            int n2 = node;
+                                                            node++;
+                                                            outfile << node << "[label=\"" << $3 << "\"];" << endl;
+                                                            int n3 = node;
+                                                            node++;
+                                                            outfile << node << "[label=\"" << $5 << "\"];" << endl;
+                                                            int n5 = node;
+                                                            node++;
+                                                            outfile << node << "[label=\"" << $6 << "\"];" << endl;
+                                                            int n6 = node;
+                                                            node++;
+                                                            outfile << node << "[label=\"ClassInstanceCreationExpression\"];" << endl;
+                                                            $$ = node;
+                                                            node++;
+                                                            outfile << $$ << "->" << $1 << ";" << endl;
+                                                            outfile << $$ << "->" << n2 << ";" << endl;
+                                                            outfile << $$ << "->" << n3 << ";" << endl;
+                                                            outfile << $$ << "->" << $4 << ";" << endl;
+                                                            outfile << $$ << "->" << n5 << ";" << endl;
+                                                            outfile << $$ << "->" << n6 << ";" << endl;}
+                                | Name DOT NEW ClassType ONB ArgumentList CNB   {outfile << node << "[label=\"" << $2 << "\"];" << endl;
+                                                            int n2 = node;
+                                                            node++;
+                                                            outfile << node << "[label=\"" << $3 << "\"];" << endl;
+                                                            int n3 = node;
+                                                            node++;
+                                                            outfile << node << "[label=\"" << $5 << "\"];" << endl;
+                                                            int n5 = node;
+                                                            node++;
+                                                            outfile << node << "[label=\"" << $6 << "\"];" << endl;
+                                                            int n7 = node;
+                                                            node++;
+                                                            outfile << node << "[label=\"ClassInstanceCreationExpression\"];" << endl;
+                                                            $$ = node;
+                                                            node++;
+                                                            outfile << $$ << "->" << $1 << ";" << endl;
+                                                            outfile << $$ << "->" << n2 << ";" << endl;
+                                                            outfile << $$ << "->" << n3 << ";" << endl;
+                                                            outfile << $$ << "->" << $4 << ";" << endl;
+                                                            outfile << $$ << "->" << n5 << ";" << endl;
+                                                            outfile << $$ << "->" << $6 << ";" << endl;
+                                                            outfile << $$ << "->" << n7 << ";" << endl;}
                                 ;
 ArgumentList            : Expression                        {$$ = $1;}
                         | ArgumentList COMMA Expression     {outfile << node << "[label=\"" << $2 << "\"];" << endl;
