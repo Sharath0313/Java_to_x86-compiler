@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <map>
 using namespace std;
+
 void yyerror (char *s);
 extern char* yytext;
 extern int yylineno;
@@ -14,18 +15,140 @@ extern FILE *yyin;
 int yylex();
 ofstream outfile;
 int node = 0;
-struct symrec
-{
-  string name;  /* name of symbol                     */
-  int type;    /* type of symbol: either VAR or FNCT */
-  int size,lineno,argumentsordimension;
-  string datatype; 
-};
-typedef struct symrec symrec;
 
-map<int,int> parents;
-vector<vector<symrec>> Global;
-vector<symrec> SymbolTable;
+struct symrec{
+    char *name,*datatype;
+    int lineno,type,argumentsordimension;       // 1->localvar 2->class 3->method 4->import 5->package
+} typedef symrec;
+
+symrec create_symrec(char* name, char* datatype, int lineno, int type, int argumentsordimension){
+
+    symrec temp;
+    temp.name = name;
+    temp.datatype = datatype;
+    temp.lineno = lineno;
+    temp.type = type;
+    temp.argumentsordimension = argumentsordimension;
+
+    return temp;
+
+}
+
+struct nlist{
+    symrec info;
+    struct nlist* next;
+    struct nlist* prev;
+} typedef nlist;
+
+nlist* create_nlist(char* name, char* datatype, int lineno, int type, int argumentsordimension){
+
+    nlist* temp = new nlist;
+    symrec t = create_symrec(name, datatype, lineno, type, argumentsordimension);
+    temp->info = t;
+    temp->next = NULL;
+    temp->prev = NULL;
+
+    return temp;
+
+}
+
+struct list{
+    char* val;
+    struct list* next;
+    struct list* prev;
+} typedef list;
+
+list* create_list(char* val){
+
+    list* temp = new list;
+    temp->prev = NULL;
+    temp->next = NULL;
+    temp->val = val;
+
+    return temp;
+
+}
+
+nlist* create_st(list* name, list* datatype, int lineno, int type, int argumentsordimension){
+
+    if(datatype == NULL || datatype->next != NULL)
+    return NULL;
+
+    list* temp = name;
+    nlist* k = create_nlist(temp->val, datatype->val, lineno, type, argumentsordimension);
+    nlist* t = k;
+    temp = temp->next;
+
+    while(temp!=NULL)
+    {
+        t->next = create_nlist(temp->val, datatype->val, lineno, type, argumentsordimension);
+        t->next->prev = t;
+        t = t->next;
+        temp = temp->next;
+    }
+
+    return k;
+}
+
+map<int, list*> nt;
+map<int, nlist*> each_symboltable;
+map<int, int> parents;
+vector<nlist*> symboltables;
+nlist* Global = create_nlist("global", "none", -1, -1, -1);
+nlist* global_tail = Global;
+
+void push_global(nlist* nl){
+    
+    global_tail->next = nl;
+    nl->prev = global_tail;
+
+    while(global_tail->next != NULL)global_tail = global_tail->next;
+
+    return;
+
+}
+
+void pop_global(nlist* nl){
+
+    global_tail = nl->prev;
+    global_tail->next = NULL;
+
+    return ;
+
+}
+
+void merge(list* n1, list* n2){
+
+    list* temp = n1;
+    if(temp == NULL)
+    {
+        n1 = n2;
+        return ;
+    }
+    if(n2 == NULL)
+    return ;
+
+    while(temp->next!=NULL)temp = temp->next;
+
+    temp->next = n2;
+    if(n2 != NULL)
+    n2->prev = temp;
+
+    return ;
+
+}
+
+void out(nlist* t){
+    
+    nlist* temp = t;
+    while(temp!=NULL){
+        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.argumentsordimension << endl;
+        temp = temp->next;
+    }
+
+    return ;
+
+}
 
 %}
 
@@ -60,32 +183,44 @@ vector<symrec> SymbolTable;
 %type<num>  ExclusiveOrExpression InclusiveOrExpression ConditionalAndExpression ConditionalOrExpression ConditionalExpression AssignmentExpression Assignment LeftHandSide Assignment_Operators Expression ConstantExpression
 %%
 
-START                   : CompilationUnit
+START                   : CompilationUnit                       
                         ;                       
 
 CompilationUnit         : %empty
-                        | PackageDeclaration 
-                        | ImportDeclarations
-                        | PackageDeclaration ImportDeclarations
-                        | TypeDeclarations
-                        | PackageDeclaration TypeDeclarations
-                        | ImportDeclarations TypeDeclarations
-                        | PackageDeclaration ImportDeclarations TypeDeclarations
+                        | PackageDeclaration                   
+                        | ImportDeclarations                    
+                        | PackageDeclaration ImportDeclarations             
+                        | TypeDeclarations                      
+                        | PackageDeclaration TypeDeclarations              
+                        | ImportDeclarations TypeDeclarations               
+                        | PackageDeclaration ImportDeclarations TypeDeclarations      
                         ;
-ImportDeclarations      : ImportDeclaration
-                        | ImportDeclarations ImportDeclaration
+ImportDeclarations      : ImportDeclaration                         {$$ = $1;}
+                        | ImportDeclarations ImportDeclaration      {$$ = $1;}
                         ;
-TypeDeclarations        : TypeDeclaration
-                        | TypeDeclarations TypeDeclaration
+TypeDeclarations        : TypeDeclaration                           {$$ = $1;}
+                        | TypeDeclarations TypeDeclaration          {$$ = $1;}     
                         ;
-PackageDeclaration      : PACKAGE Name SEMICOLON
+PackageDeclaration      : PACKAGE Name SEMICOLON                    {$$ = node;
+                                                                    node ++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1), yylineno, 5, 0);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    }
                         ;
 ImportDeclaration       : SingleTypeImportDeclaration
                         | TypeImportOnDemandDeclaration
                         ;
-SingleTypeImportDeclaration : IMPORT Name SEMICOLON           
+SingleTypeImportDeclaration : IMPORT Name SEMICOLON                 {$$ = node;
+                                                                    node ++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1), yylineno, 4, 0);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    }  
                             ;
-TypeImportOnDemandDeclaration   : IMPORT Name DOT STAR SEMICOLON
+TypeImportOnDemandDeclaration   : IMPORT Name DOT STAR SEMICOLON    {$$ = node;
+                                                                    node ++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1), yylineno, 4, 0);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    }
                                 ;
 TypeDeclaration         : ClassDeclaration
                         | InterfaceDeclaration
@@ -101,10 +236,12 @@ Literal                 : INT_LITERAL
                         | TEXT_BLOCK
                         ;
 
-Name                    : SingleName
+Name                    : SingleName                    {$$ = $1;}
                         | MultipleName
                         ;
-SingleName              : IDENTIFIER
+SingleName              : IDENTIFIER                    {$$ = node;
+                                                        node++;
+                                                        nt[$$] = create_list($1);}
                         ;
 MultipleName            : Name DOT IDENTIFIER
                         ;
@@ -124,14 +261,20 @@ Modifier                : PUBLIC
                         | VOLATILE
                         ;
 
-Type                    : PrimitiveType
-                        | ReferenceType
+Type                    : PrimitiveType                 {$$ = $1;}
+                        | ReferenceType                 
                         ;
-PrimitiveType           : NumericType
-                        | BOOLEAN
+PrimitiveType           : NumericType                   {$$ = $1;}
+                        | BOOLEAN                       {$$ = node;
+                                                        node++;
+                                                        nt[$$] = create_list($1);}
                         ;
-NumericType             : INTEGRALTYPE
-                        | FLOATINGPOINTTYPE
+NumericType             : INTEGRALTYPE                  {$$ = node;
+                                                        node++;
+                                                        nt[$$] = create_list($1);}
+                        | FLOATINGPOINTTYPE             {$$ = node;
+                                                        node++;
+                                                        nt[$$] = create_list($1);}
                         ;
 ReferenceType           : ClassOrInterfaceType
                         | ArrayType
@@ -172,7 +315,6 @@ ClassBodyDeclarations   : ClassBodyDeclaration
 ClassBodyDeclaration    : ClassMemberDeclaration
                         | StaticInitializer
                         | ConstructorDeclaration
-                        | ClassDeclaration
                         ;
 ClassMemberDeclaration  : FieldDeclaration
                         | MethodDeclaration 
@@ -180,13 +322,15 @@ ClassMemberDeclaration  : FieldDeclaration
 FieldDeclaration        : Type VariableDeclarators SEMICOLON
                         | Modifiers Type VariableDeclarators SEMICOLON
                         ;
-VariableDeclarators     : VariableDeclarator
-                        | VariableDeclarators COMMA VariableDeclarator
+VariableDeclarators     : VariableDeclarator                            {$$ = $1;}
+                        | VariableDeclarators COMMA VariableDeclarator  {merge(nt[$1],nt[$3]);}
                         ;
-VariableDeclarator      : VariableDeclaratorId
-                        | VariableDeclaratorId EQ VariableInitializer
+VariableDeclarator      : VariableDeclaratorId                          {$$ = $1;}
+                        | VariableDeclaratorId EQ VariableInitializer   {$$ = $1;}
                         ;
-VariableDeclaratorId    : IDENTIFIER
+VariableDeclaratorId    : IDENTIFIER                                    {$$ = node;
+                                                                        node++;
+                                                                        nt[$$] = create_list($1);}
                         | VariableDeclaratorId OSB CSB
                         ;
 VariableInitializer     : Expression
@@ -272,45 +416,56 @@ VariableInitializers    : VariableInitializer
                         | VariableInitializers COMMA VariableInitializer
                         ;
 
-Block                   : OCB CCB
-                        | OCB BlockStatements CCB
+Block                   : OCB CCB                                           {$$ = node;
+                                                                            node++;
+                                                                            each_symboltable[$$] = NULL;}
+                        | OCB BlockStatements CCB                           {pop_global(each_symboltable[$2]);
+                                                                            symboltables.push_back(each_symboltable[$2]);
+                                                                            each_symboltable[$2] = NULL;
+                                                                            $$ = $2;}  
                         ;
-BlockStatements         : BlockStatement
-                        | BlockStatements BlockStatement
+BlockStatements         : BlockStatement                                    {$$ = $1;}
+                        | BlockStatements BlockStatement                    {$$ = $1;}
                         ;
-BlockStatement          : LocalVariableDeclarationStatement
-                        | Statement 
+BlockStatement          : LocalVariableDeclarationStatement                 {$$ = $1;}
+                        | Statement                                       
                         ;
-LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON
+LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON    {$$ = $1;}
                                     ;
-LocalVariableDeclaration    : Type VariableDeclarators
+LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0);
+                                                                    push_global(each_symboltable[$$]);  
+                                                                    }   
                             ;
-Statement               : StatementWithoutTrailingSubstatement
-                        | LabeledStatement
-                        | IfThenStatement
-                        | IfThenElseStatement
-                        | WhileStatement
-                        | ForStatement
+Statement               : StatementWithoutTrailingSubstatement      
+                        | LabeledStatement                          
+                        | IfThenStatement                           
+                        | IfThenElseStatement                       
+                        | WhileStatement                            
+                        | ForStatement                              
                         ;
-StatementNoShortIf      : StatementWithoutTrailingSubstatement
-                        | LabeledStatementNoShortIf
-                        | IfThenElseStatementNoShortIf
-                        | WhileStatementNoShortIf
-                        | ForStatementNoShortIf
+StatementNoShortIf      : StatementWithoutTrailingSubstatement      
+                        | LabeledStatementNoShortIf                 
+                        | IfThenElseStatementNoShortIf              
+                        | WhileStatementNoShortIf                   
+                        | ForStatementNoShortIf                     
                         ;
-StatementWithoutTrailingSubstatement    : Block
-                                        | EmptyStatement
-                                        | ExpressionStatement
-                                        | SwitchStatement
-                                        | DoStatement 
-                                        | BreakStatement
-                                        | ContinueStatement
-                                        | ReturnStatement
-                                        | SynchronizedStatement
-                                        | ThrowStatement
-                                        | TryStatement
+StatementWithoutTrailingSubstatement    : Block                     
+                                        | EmptyStatement            
+                                        | ExpressionStatement       
+                                        | SwitchStatement           
+                                        | DoStatement               
+                                        | BreakStatement            
+                                        | ContinueStatement         
+                                        | ReturnStatement            
+                                        | SynchronizedStatement     
+                                        | ThrowStatement            
+                                        | TryStatement              
                                         ;
-EmptyStatement          : SEMICOLON
+EmptyStatement          : SEMICOLON                                         {$$ = node;
+                                                                            node++;
+                                                                            each_symboltable[$$] = NULL;}            
                         ;
 LabeledStatement        : IDENTIFIER COLON Statement
                         ;
@@ -420,8 +575,6 @@ PrimaryNoNewArray       : Literal
                         ;
 ClassInstanceCreationExpression : NEW ClassType ONB CNB
                                 | NEW ClassType ONB ArgumentList CNB
-                                | Name DOT NEW ClassType ONB CNB 
-                                | Name DOT NEW ClassType ONB ArgumentList CNB 
                                 ;
 ArgumentList            : Expression
                         | ArgumentList COMMA Expression
@@ -543,7 +696,7 @@ int main (int argc, char** argv) {
 
     if(argc!=3)
     {
-        cout << "The syntax for execution is: program input_filename" << endl;
+        cout << "The syntax for execution is: program input_filename output_filename" << endl;
         return 0;
     }
 
@@ -554,10 +707,23 @@ int main (int argc, char** argv) {
         return -1;
     }
     yyin = infile;
-    outfile << "digraph G{" << endl << "ordering=\"out\";" << endl;
     yyparse();
-    outfile << "}" << endl;
     fclose(infile);
+
+    // out(Global);
+
+    outfile << "Name, " << "DataType, " << "LineNO, " << "Type, " << "ArgumentsOrDimensions" << endl << endl;
+
+    for(int i=0; i<symboltables.size(); i++)
+    {
+        nlist* temp = symboltables[i];
+        while(temp!=NULL)
+        {
+            outfile << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.argumentsordimension << endl;
+            temp = temp->next;
+        }
+        outfile << endl; 
+    }
 
 	return 0;
 }
