@@ -6,6 +6,7 @@
 #include <algorithm> 
 #include <cstdio>
 #include <map>
+#include <cstring>
 using namespace std;
 
 void yyerror (char *s);
@@ -16,19 +17,28 @@ int yylex();
 ofstream outfile;
 int node = 0;
 
+struct list{
+    char* val;
+    int dim;
+    struct list* next;
+    struct list* prev;
+} typedef list;
+
 struct symrec{
     char *name,*datatype;
-    int lineno,type,argumentsordimension;       // 1->localvar 2->class 3->method 4->import 5->package
+    int lineno,type,dimension;       // 1->localvar 2->class 3->method 4->import 5->package
+    list* args;
 } typedef symrec;
 
-symrec create_symrec(char* name, char* datatype, int lineno, int type, int argumentsordimension){
+symrec create_symrec(char* name, char* datatype, int lineno, int type, int dimension, list* args){
 
     symrec temp;
     temp.name = name;
     temp.datatype = datatype;
     temp.lineno = lineno;
     temp.type = type;
-    temp.argumentsordimension = argumentsordimension;
+    temp.dimension = dimension;
+    temp.args = args;
 
     return temp;
 
@@ -40,10 +50,10 @@ struct nlist{
     struct nlist* prev;
 } typedef nlist;
 
-nlist* create_nlist(char* name, char* datatype, int lineno, int type, int argumentsordimension){
+nlist* create_nlist(char* name, char* datatype, int lineno, int type, int dimension, list* args){
 
     nlist* temp = new nlist;
-    symrec t = create_symrec(name, datatype, lineno, type, argumentsordimension);
+    symrec t = create_symrec(name, datatype, lineno, type, dimension, args);
     temp->info = t;
     temp->next = NULL;
     temp->prev = NULL;
@@ -52,36 +62,31 @@ nlist* create_nlist(char* name, char* datatype, int lineno, int type, int argume
 
 }
 
-struct list{
-    char* val;
-    struct list* next;
-    struct list* prev;
-} typedef list;
-
-list* create_list(char* val){
+list* create_list(char* val, int dim){
 
     list* temp = new list;
     temp->prev = NULL;
     temp->next = NULL;
     temp->val = val;
+    temp->dim = dim;
 
     return temp;
 
 }
 
-nlist* create_st(list* name, list* datatype, int lineno, int type, int argumentsordimension){
+nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension, list* args){
 
     if(datatype == NULL || datatype->next != NULL)
     return NULL;
 
     list* temp = name;
-    nlist* k = create_nlist(temp->val, datatype->val, lineno, type, argumentsordimension);
+    nlist* k = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args);
     nlist* t = k;
     temp = temp->next;
 
     while(temp!=NULL)
     {
-        t->next = create_nlist(temp->val, datatype->val, lineno, type, argumentsordimension);
+        t->next = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args);
         t->next->prev = t;
         t = t->next;
         temp = temp->next;
@@ -91,10 +96,11 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int arguments
 }
 
 map<int, list*> nt;
+map<int, list*> args;
 map<int, nlist*> each_symboltable;
 map<int, int> parents;
 vector<nlist*> symboltables;
-nlist* Global = create_nlist("global", "none", -1, -1, -1);
+nlist* Global = create_nlist("global", "none", -1, -1, -1, NULL);
 nlist* global_tail = Global;
 
 void push_global(nlist* nl){
@@ -142,7 +148,7 @@ void out(nlist* t){
     
     nlist* temp = t;
     while(temp!=NULL){
-        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.argumentsordimension << endl;
+        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << endl;
         temp = temp->next;
     }
 
@@ -167,11 +173,11 @@ void out(nlist* t){
 %token<str> INC DEC RELAND RELOR RELEQ RELNOTEQ 
 %token<str> PACKAGE IMPORT SEMICOLON DOT STAR OSB CSB OCB CCB ONB CNB COMMA COLON PLUS MINUS NEG NOT DIV MOD AND UP OR QM EQ
 %type<num>  START CompilationUnit ImportDeclarations TypeDeclarations PackageDeclaration ImportDeclaration SingleTypeImportDeclaration  
-%type<num>  TypeImportOnDemandDeclaration TypeDeclaration  Name SingleName MultipleName Modifiers Modifier Type PrimitiveType ReferenceType
-%type<num>  NumericType ClassOrInterfaceType ClassType InterfaceType ArrayType ClassDeclaration Super Interfaces InterfaceTypeList ClassBody ClassBodyDeclarations
+%type<num>  TypeImportOnDemandDeclaration TypeDeclaration  Name SingleName MultipleName Modifiers Modifier Type PrimitiveType ReferenceType Classheader
+%type<num>  NumericType ClassOrInterfaceType ClassType ArrayType ClassDeclaration ClassBody ClassBodyDeclarations
 %type<num>  ClassBodyDeclaration ClassMemberDeclaration FieldDeclaration VariableDeclarators VariableDeclarator VariableDeclaratorId VariableInitializer
-%type<num>  MethodDeclaration MethodHeader MethodDeclarator FormalParameterList FormalParameter Throws ClassTypeList MethodBody StaticInitializer
-%type<num>  ConstructorDeclaration ConstructorDeclarator ConstructorBody ExplicitConstructorInvocation InterfaceDeclaration ExtendsInterfaces InterfaceBody
+%type<num>  MethodDeclaration MethodHeader MethodDeclarator FormalParameterList FormalParameter MethodBody StaticInitializer
+%type<num>  ConstructorDeclaration ConstructorDeclarator ConstructorBody ExplicitConstructorInvocation InterfaceDeclaration InterfaceBody
 %type<num>  InterfaceMemberDeclarations InterfaceMemberDeclaration ConstantDeclaration AbstractMethodDeclaration ArrayInitializer VariableInitializers Block
 %type<num>  BlockStatements BlockStatement LocalVariableDeclarationStatement LocalVariableDeclaration Statement StatementNoShortIf StatementWithoutTrailingSubstatement
 %type<num>  EmptyStatement LabeledStatement LabeledStatementNoShortIf ExpressionStatement StatementExpression IfThenStatement IfThenElseStatement IfThenElseStatementNoShortIf
@@ -183,201 +189,297 @@ void out(nlist* t){
 %type<num>  ExclusiveOrExpression InclusiveOrExpression ConditionalAndExpression ConditionalOrExpression ConditionalExpression AssignmentExpression Assignment LeftHandSide Assignment_Operators Expression ConstantExpression
 %%
 
-START                   : CompilationUnit                       
+START                   : CompilationUnit              {if(each_symboltable[$1]!=NULL){pop_global(each_symboltable[$1]);
+                                                        symboltables.push_back(each_symboltable[$1]);
+                                                        each_symboltable[$1] = NULL;
+                                                        $$ = $1;}}          
                         ;                       
 
-CompilationUnit         : %empty
-                        | PackageDeclaration                   
-                        | ImportDeclarations                    
-                        | PackageDeclaration ImportDeclarations             
-                        | TypeDeclarations                      
-                        | PackageDeclaration TypeDeclarations              
-                        | ImportDeclarations TypeDeclarations               
-                        | PackageDeclaration ImportDeclarations TypeDeclarations      
+CompilationUnit         : %empty                    {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | PackageDeclaration        {$$ = $1;}                
+                        | ImportDeclarations        {$$ = $1;}            
+                        | PackageDeclaration ImportDeclarations {$$ = $1;}           
+                        | TypeDeclarations          {$$ = $1;}
+                        | PackageDeclaration TypeDeclarations   {$$ = $1;}         
+                        | ImportDeclarations TypeDeclarations   {$$ = $1;}            
+                        | PackageDeclaration ImportDeclarations TypeDeclarations    {$$ = $1;} 
                         ;
 ImportDeclarations      : ImportDeclaration                         {$$ = $1;}
                         | ImportDeclarations ImportDeclaration      {$$ = $1;}
                         ;
 TypeDeclarations        : TypeDeclaration                           {$$ = $1;}
-                        | TypeDeclarations TypeDeclaration          {$$ = $1;}     
+                        | TypeDeclarations TypeDeclaration          {if(each_symboltable[$1]!=NULL) $$ = $1;
+                                                                    else $$ = $2;}     
                         ;
 PackageDeclaration      : PACKAGE Name SEMICOLON                    {$$ = node;
-                                                                    node ++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1), yylineno, 5, 0);
-                                                                    push_global(each_symboltable[$$]);
-                                                                    }
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 5, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);}
                         ;
-ImportDeclaration       : SingleTypeImportDeclaration
-                        | TypeImportOnDemandDeclaration
+ImportDeclaration       : SingleTypeImportDeclaration               {$$ = $1;}
+                        | TypeImportOnDemandDeclaration             {$$ = $1;}
                         ;
 SingleTypeImportDeclaration : IMPORT Name SEMICOLON                 {$$ = node;
-                                                                    node ++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1), yylineno, 4, 0);
-                                                                    push_global(each_symboltable[$$]);
-                                                                    }  
+                                                                    node++;
+                                                                    string temp;
+                                                                    string k = nt[$2]->val;
+                                                                    for(int i=0; i<k.size(); i++){
+                                                                        temp += k[i];
+                                                                        if(k[i]=='.') temp = "";
+                                                                    }
+                                                                    nt[$2]->val = const_cast<char*>(temp.c_str());
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 4, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);}  
                             ;
 TypeImportOnDemandDeclaration   : IMPORT Name DOT STAR SEMICOLON    {$$ = node;
-                                                                    node ++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1), yylineno, 4, 0);
-                                                                    push_global(each_symboltable[$$]);
-                                                                    }
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 4, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);}
                                 ;
-TypeDeclaration         : ClassDeclaration
-                        | InterfaceDeclaration
-                        | SEMICOLON
+TypeDeclaration         : ClassDeclaration                          {$$ = $1;}
+                        | InterfaceDeclaration                      {$$ = $1;}
+                        | SEMICOLON                                 {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
 
-Literal                 : INT_LITERAL
-                        | FLOAT_LITERAL
-                        | BOOL_LITERAL
-                        | CHAR_LITERAL
-                        | STRING_LITERAL
-                        | NULL_LITERAL
-                        | TEXT_BLOCK
+Literal                 : INT_LITERAL               {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | FLOAT_LITERAL             {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | BOOL_LITERAL              {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | CHAR_LITERAL              {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | STRING_LITERAL            {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | NULL_LITERAL              {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | TEXT_BLOCK                {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
                         ;
 
 Name                    : SingleName                    {$$ = $1;}
-                        | MultipleName
-                        ;
+                        | MultipleName                  {$$ = $1;}
+                        ;   
 SingleName              : IDENTIFIER                    {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1);}
+                                                        nt[$$] = create_list($1, 0);}
                         ;
-MultipleName            : Name DOT IDENTIFIER
+MultipleName            : Name DOT IDENTIFIER           {strcat(nt[$1]->val,$2);
+                                                        strcat(nt[$1]->val,$3);
+                                                        $$ = $1;} 
                         ;
 
-Modifiers               : Modifier
-                        | Modifiers Modifier
-                        ;
-Modifier                : PUBLIC
-                        | PROTECTED
-                        | PRIVATE
-                        | STATIC
-                        | ABSTRACT
-                        | FINAL
-                        | NATIVE
-                        | SYNCHRONIZED
-                        | TRANSIENT
-                        | VOLATILE
+Modifiers               : Modifier                      {$$ = $1;}
+                        | Modifiers Modifier            {if(each_symboltable[$1]!=NULL) $$ = $1;
+                                                        else $$ = $2;}
+                        ;   
+Modifier                : PUBLIC                    {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | PROTECTED                 {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | PRIVATE                   {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | STATIC                    {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | ABSTRACT                  {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | FINAL                     {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | NATIVE                    {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | SYNCHRONIZED              {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | TRANSIENT                 {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
+                        | VOLATILE                  {$$ = node;
+                                                    node ++;
+                                                    each_symboltable[$$] = NULL;}
                         ;
 
 Type                    : PrimitiveType                 {$$ = $1;}
-                        | ReferenceType                 
+                        | ReferenceType                 {$$ = $1;}
                         ;
 PrimitiveType           : NumericType                   {$$ = $1;}
                         | BOOLEAN                       {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1);}
+                                                        nt[$$] = create_list($1, 0);}
                         ;
 NumericType             : INTEGRALTYPE                  {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1);}
+                                                        nt[$$] = create_list($1, 0);}
                         | FLOATINGPOINTTYPE             {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1);}
+                                                        nt[$$] = create_list($1, 0);}
                         ;
-ReferenceType           : ClassOrInterfaceType
-                        | ArrayType
+ReferenceType           : ClassOrInterfaceType          {$$ = $1;} 
+                        | ArrayType                     {$$ = $1;}
                         ;
-ClassOrInterfaceType    : Name
+ClassOrInterfaceType    : Name                          {$$ = $1;}                
                         ;
-ClassType               : ClassOrInterfaceType
+ClassType               : ClassOrInterfaceType          {$$ = $1;}
                         ;
-InterfaceType           : ClassOrInterfaceType
-                        ;
-ArrayType               : PrimitiveType OSB CSB
-                        | Name OSB CSB
-                        | ArrayType OSB CSB
+ArrayType               : PrimitiveType OSB CSB                     {nt[$1]->dim++;
+                                                                    $$ = $1;} 
+                        | Name OSB CSB                              {nt[$1]->dim++;
+                                                                    $$ = $1;}
+                        | ArrayType OSB CSB                         {nt[$1]->dim++;
+                                                                    $$ = $1;} 
                         ;
 
-ClassDeclaration        : CLASS IDENTIFIER ClassBody
-                        | Modifiers CLASS IDENTIFIER ClassBody
-                        | CLASS IDENTIFIER Super ClassBody
-                        | Modifiers CLASS IDENTIFIER Super ClassBody
-                        | CLASS IDENTIFIER Interfaces ClassBody
-                        | Modifiers CLASS IDENTIFIER Interfaces ClassBody
-                        | CLASS IDENTIFIER Super Interfaces ClassBody
-                        | Modifiers CLASS IDENTIFIER Super Interfaces ClassBody
+ClassDeclaration        : Classheader ClassBody                         {$$ = $1;}
                         ;
-Super                   : EXTENDS ClassType
+Classheader             : CLASS IDENTIFIER                              {$$ = node;
+                                                                        node++;
+                                                                        each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL);
+                                                                        push_global(each_symboltable[$$]);}
+                        | Modifiers CLASS IDENTIFIER                    {$$ = node;
+                                                                        node++;
+                                                                        each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL);
+                                                                        push_global(each_symboltable[$$]);}
                         ;
-Interfaces              : IMPLEMENTS InterfaceTypeList
+ClassBody               : OCB CCB                   {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | OCB ClassBodyDeclarations CCB                     {pop_global(each_symboltable[$2]);
+                                                                            symboltables.push_back(each_symboltable[$2]);
+                                                                            each_symboltable[$2] = NULL;
+                                                                            $$ = $2;} 
                         ;
-InterfaceTypeList       : InterfaceType
-                        | InterfaceTypeList COMMA InterfaceType
+ClassBodyDeclarations   : ClassBodyDeclaration      {$$ = $1;}
+                        | ClassBodyDeclarations ClassBodyDeclaration    {$$ = $1;}
                         ;
-ClassBody               : OCB CCB
-                        | OCB ClassBodyDeclarations CCB
+ClassBodyDeclaration    : ClassMemberDeclaration    {$$ = $1;}
+                        | StaticInitializer         {$$ = $1;}
+                        | ConstructorDeclaration    {$$ = $1;}
                         ;
-ClassBodyDeclarations   : ClassBodyDeclaration
-                        | ClassBodyDeclarations ClassBodyDeclaration
+ClassMemberDeclaration  : FieldDeclaration          {$$ = $1;}
+                        | MethodDeclaration         {$$ = $1;}
                         ;
-ClassBodyDeclaration    : ClassMemberDeclaration
-                        | StaticInitializer
-                        | ConstructorDeclaration
-                        ;
-ClassMemberDeclaration  : FieldDeclaration
-                        | MethodDeclaration 
-                        ;
-FieldDeclaration        : Type VariableDeclarators SEMICOLON
-                        | Modifiers Type VariableDeclarators SEMICOLON
+FieldDeclaration        : Type VariableDeclarators SEMICOLON        {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);}
+                        | Modifiers Type VariableDeclarators SEMICOLON  {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$3], nt[$2], yylineno, 1, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);  }
                         ;
 VariableDeclarators     : VariableDeclarator                            {$$ = $1;}
-                        | VariableDeclarators COMMA VariableDeclarator  {merge(nt[$1],nt[$3]);}
+                        | VariableDeclarators COMMA VariableDeclarator  {merge(nt[$1],nt[$3]);
+                                                                        $$ = $1;}
                         ;
 VariableDeclarator      : VariableDeclaratorId                          {$$ = $1;}
                         | VariableDeclaratorId EQ VariableInitializer   {$$ = $1;}
                         ;
 VariableDeclaratorId    : IDENTIFIER                                    {$$ = node;
                                                                         node++;
-                                                                        nt[$$] = create_list($1);}
-                        | VariableDeclaratorId OSB CSB
+                                                                        nt[$$] = create_list($1, 0);}
+                        | VariableDeclaratorId OSB CSB                  {nt[$1]->dim++;
+                                                                        $$ = $1;}
                         ;
 VariableInitializer     : Expression
                         | ArrayInitializer
                         ;
-MethodDeclaration       : MethodHeader MethodBody
+MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;}
                         ;
-MethodHeader            : Type MethodDeclarator
-                        | Modifiers Type MethodDeclarator
-                        | Type MethodDeclarator Throws
-                        | Modifiers Type MethodDeclarator Throws
-                        | VOID MethodDeclarator
-                        | Modifiers VOID MethodDeclarator
-                        | VOID MethodDeclarator Throws
-                        | Modifiers VOID MethodDeclarator Throws
+MethodHeader            : Type MethodDeclarator                     {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    each_symboltable[$$]->info.args = args[$2];}          
+                        | Modifiers Type MethodDeclarator           {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$3], nt[$1], yylineno, 3, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    each_symboltable[$$]->info.args = args[$3];}
+                        | VOID MethodDeclarator                     {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 3, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    each_symboltable[$$]->info.args = args[$2];}
+                        | Modifiers VOID MethodDeclarator           {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$3], create_list($2, 0), yylineno, 3, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    each_symboltable[$$]->info.args = args[$3];}
                         ;
-MethodDeclarator        : IDENTIFIER ONB CNB
-                        | IDENTIFIER ONB FormalParameterList CNB
-                        | MethodDeclarator OSB CSB
+MethodDeclarator        : SingleName ONB CNB                            {$$ = $1;}
+                        | SingleName ONB FormalParameterList CNB        {$$ = $1;
+                                                                        args[$$] = nt[$3];}
+                        | MethodDeclarator OSB CSB                      {$$ = $1;}
                         ;
-FormalParameterList     : FormalParameter
-                        | FormalParameterList COMMA FormalParameter
+FormalParameterList     : FormalParameter                               {$$ = $1;}
+                        | FormalParameterList COMMA FormalParameter     {merge(nt[$1],nt[$3]);
+                                                                        $$ = $1;}
                         ;
-FormalParameter         : Type VariableDeclaratorId
+FormalParameter         : Type VariableDeclaratorId                 {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    nt[$$] = nt[$1];}            
                         ;
-Throws                  : THROWS ClassTypeList
-                        ;
-ClassTypeList           : ClassType
-                        | ClassTypeList COMMA ClassType
-                        ;
-MethodBody              : Block 
-                        | SEMICOLON
+MethodBody              : Block                     {$$ = $1;}
+                        | SEMICOLON                 {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
                         ;           
-StaticInitializer       : STATIC Block
+StaticInitializer       : STATIC Block              {$$ = $2;}
                         ;
-ConstructorDeclaration  : ConstructorDeclarator ConstructorBody
-                        | Modifiers ConstructorDeclarator ConstructorBody
-                        | ConstructorDeclarator Throws ConstructorBody
-                        | Modifiers ConstructorDeclarator Throws ConstructorBody
+ConstructorDeclaration  : ConstructorDeclarator ConstructorBody         {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$1], create_list("Constructor", 0), yylineno, 3, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    each_symboltable[$$]->info.args = args[$1];}
+                        | Modifiers ConstructorDeclarator ConstructorBody   {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list("Constructor", 0), yylineno, 3, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);
+                                                                    each_symboltable[$$]->info.args = args[$2];}
                         ;
-ConstructorDeclarator   : SingleName ONB CNB
-                        | SingleName ONB FormalParameterList CNB
-                        ;
-ConstructorBody         : OCB CCB
-                        | OCB ExplicitConstructorInvocation CCB
-                        | OCB BlockStatements CCB
-                        | OCB ExplicitConstructorInvocation BlockStatements CCB
+ConstructorDeclarator   : SingleName ONB CNB                        {$$ = $1;}   
+                        | SingleName ONB FormalParameterList CNB    {$$ = $1;
+                                                                    args[$$] = nt[$3];} 
+                        ;   
+ConstructorBody         : OCB CCB                   {$$ = node;
+                                                    node++;
+                                                    each_symboltable[$$] = NULL;}
+                        | OCB ExplicitConstructorInvocation CCB             {$$ = node;
+                                                                            node++;
+                                                                            each_symboltable[$$] = NULL;}
+                        | OCB BlockStatements CCB                           {if(each_symboltable[$2]!=NULL){
+                                                                                pop_global(each_symboltable[$2]);
+                                                                                symboltables.push_back(each_symboltable[$2]);
+                                                                                each_symboltable[$2] = NULL;
+                                                                                $$ = $2;
+                                                                                }
+                                                                            }         
+                        | OCB ExplicitConstructorInvocation BlockStatements CCB {if(each_symboltable[$3]!=NULL){
+                                                                                    pop_global(each_symboltable[$3]);
+                                                                                    symboltables.push_back(each_symboltable[$3]);
+                                                                                    each_symboltable[$3] = NULL;
+                                                                                    $$ = $3;
+                                                                                    }
+                                                                                }
                         ;
 ExplicitConstructorInvocation   : THIS ONB CNB SEMICOLON
                                 | THIS ONB ArgumentList CNB SEMICOLON
@@ -387,14 +489,9 @@ ExplicitConstructorInvocation   : THIS ONB CNB SEMICOLON
 
 InterfaceDeclaration    : INTERFACE IDENTIFIER InterfaceBody
                         | Modifiers INTERFACE IDENTIFIER InterfaceBody
-                        | INTERFACE IDENTIFIER ExtendsInterfaces InterfaceBody
-                        | Modifiers INTERFACE IDENTIFIER ExtendsInterfaces InterfaceBody
-                        ;
-ExtendsInterfaces       : EXTENDS InterfaceType
-                        | ExtendsInterfaces COMMA InterfaceType
                         ;
 InterfaceBody           : OCB CCB
-                        | OCB InterfaceMemberDeclarations CCB
+                        | OCB InterfaceMemberDeclarations CCB           
                         ;
 InterfaceMemberDeclarations : InterfaceMemberDeclaration 
                             | InterfaceMemberDeclarations InterfaceMemberDeclaration
@@ -419,170 +516,349 @@ VariableInitializers    : VariableInitializer
 Block                   : OCB CCB                                           {$$ = node;
                                                                             node++;
                                                                             each_symboltable[$$] = NULL;}
-                        | OCB BlockStatements CCB                           {pop_global(each_symboltable[$2]);
-                                                                            symboltables.push_back(each_symboltable[$2]);
-                                                                            each_symboltable[$2] = NULL;
-                                                                            $$ = $2;}  
+                        | OCB BlockStatements CCB                           {if(each_symboltable[$2]!=NULL){
+                                                                                pop_global(each_symboltable[$2]);
+                                                                                symboltables.push_back(each_symboltable[$2]);
+                                                                                each_symboltable[$2] = NULL;
+                                                                                $$ = $2;
+                                                                                }
+                                                                            }
                         ;
 BlockStatements         : BlockStatement                                    {$$ = $1;}
-                        | BlockStatements BlockStatement                    {$$ = $1;}
+                        | BlockStatements BlockStatement                    {if(each_symboltable[$1]!=NULL) $$ = $1;
+                                                                            else $$ = $2;}
                         ;
 BlockStatement          : LocalVariableDeclarationStatement                 {$$ = $1;}
-                        | Statement                                       
+                        | Statement                                         {$$ = $1;}               
                         ;
 LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON    {$$ = $1;}
                                     ;
 LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0);
-                                                                    push_global(each_symboltable[$$]);  
-                                                                    }   
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL);
+                                                                    push_global(each_symboltable[$$]);  }   
                             ;
-Statement               : StatementWithoutTrailingSubstatement      
-                        | LabeledStatement                          
-                        | IfThenStatement                           
-                        | IfThenElseStatement                       
-                        | WhileStatement                            
-                        | ForStatement                              
+Statement               : StatementWithoutTrailingSubstatement      {$$ = $1;}   
+                        | LabeledStatement                          {$$ = $1;}
+                        | IfThenStatement                           {$$ = $1;}
+                        | IfThenElseStatement                       {$$ = $1;}
+                        | WhileStatement                            {$$ = $1;}
+                        | ForStatement                              {$$ = $1;}
                         ;
-StatementNoShortIf      : StatementWithoutTrailingSubstatement      
-                        | LabeledStatementNoShortIf                 
-                        | IfThenElseStatementNoShortIf              
-                        | WhileStatementNoShortIf                   
-                        | ForStatementNoShortIf                     
+StatementNoShortIf      : StatementWithoutTrailingSubstatement      {$$ = $1;}
+                        | LabeledStatementNoShortIf                 {$$ = $1;}
+                        | IfThenElseStatementNoShortIf              {$$ = $1;}
+                        | WhileStatementNoShortIf                   {$$ = $1;}
+                        | ForStatementNoShortIf                     {$$ = $1;}
                         ;
-StatementWithoutTrailingSubstatement    : Block                     
-                                        | EmptyStatement            
-                                        | ExpressionStatement       
-                                        | SwitchStatement           
-                                        | DoStatement               
-                                        | BreakStatement            
-                                        | ContinueStatement         
-                                        | ReturnStatement            
-                                        | SynchronizedStatement     
-                                        | ThrowStatement            
-                                        | TryStatement              
+StatementWithoutTrailingSubstatement    : Block                     {$$ = $1;}  
+                                        | EmptyStatement            {$$ = $1;}
+                                        | ExpressionStatement       {$$ = $1;}
+                                        | SwitchStatement           {$$ = $1;}
+                                        | DoStatement               {$$ = $1;}
+                                        | BreakStatement            {$$ = $1;}
+                                        | ContinueStatement         {$$ = $1;}
+                                        | ReturnStatement           {$$ = $1;}
+                                        | SynchronizedStatement     {$$ = $1;}
+                                        | ThrowStatement            {$$ = $1;}
+                                        | TryStatement              {$$ = $1;}
                                         ;
 EmptyStatement          : SEMICOLON                                         {$$ = node;
                                                                             node++;
                                                                             each_symboltable[$$] = NULL;}            
                         ;
-LabeledStatement        : IDENTIFIER COLON Statement
+LabeledStatement        : IDENTIFIER COLON Statement                        {$$ = $3;} 
                         ;
-LabeledStatementNoShortIf   : IDENTIFIER COLON StatementNoShortIf
+LabeledStatementNoShortIf   : IDENTIFIER COLON StatementNoShortIf           {$$ = $3;} 
                             ;
-ExpressionStatement     : StatementExpression SEMICOLON
+ExpressionStatement     : StatementExpression SEMICOLON                     {$$ = $1;}
                         ;
-StatementExpression     : Assignment 
-                        | PreIncrementExpression
-                        | PreDecrementExpression
-                        | PostIncrementExpression
-                        | PostDecrementExpression
-                        | MethodInvocation
-                        | ClassInstanceCreationExpression
+StatementExpression     : Assignment                                        {$$ = $1;}
+                        | PreIncrementExpression                            {$$ = $1;}
+                        | PreDecrementExpression                            {$$ = $1;}
+                        | PostIncrementExpression                           {$$ = $1;}
+                        | PostDecrementExpression                           {$$ = $1;}
+                        | MethodInvocation                                  {$$ = $1;}
+                        | ClassInstanceCreationExpression                   {$$ = $1;}
                         ;
-IfThenStatement         : IF ONB Expression CNB Statement
+IfThenStatement         : IF ONB Expression CNB Statement                   {if(each_symboltable[$5]!=NULL){
+                                                                                pop_global(each_symboltable[$5]);
+                                                                                symboltables.push_back(each_symboltable[$5]);
+                                                                                each_symboltable[$5] = NULL;
+                                                                                $$ = $5;
+                                                                                }
+                                                                            }
                         ;
-IfThenElseStatement     : IF ONB Expression CNB StatementNoShortIf ELSE Statement
+IfThenElseStatement     : IF ONB Expression CNB StatementNoShortIf ELSE Statement   {if(each_symboltable[$5]!=NULL){
+                                                                                pop_global(each_symboltable[$5]);
+                                                                                symboltables.push_back(each_symboltable[$5]);
+                                                                                each_symboltable[$5] = NULL;
+                                                                                $$ = $5;
+                                                                                }
+                                                                            }
                         ;
-IfThenElseStatementNoShortIf    : IF ONB Expression CNB StatementNoShortIf ELSE StatementNoShortIf
+IfThenElseStatementNoShortIf    : IF ONB Expression CNB StatementNoShortIf ELSE StatementNoShortIf  {if(each_symboltable[$5]!=NULL){
+                                                                                pop_global(each_symboltable[$5]);
+                                                                                symboltables.push_back(each_symboltable[$5]);
+                                                                                each_symboltable[$5] = NULL;
+                                                                                $$ = $5;
+                                                                                }
+                                                                            }
                                 ;
-SwitchStatement         : SWITCH ONB Expression CNB SwitchBlock
+SwitchStatement         : SWITCH ONB Expression CNB SwitchBlock     {$$ = $5;}
                         ;
-SwitchBlock             : OCB CCB
-                        | OCB SwitchLabels CCB
-                        | OCB SwitchBlockStatementGroups CCB
-                        | OCB SwitchBlockStatementGroups SwitchLabels CCB
+SwitchBlock             : OCB CCB                                   {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;}  
+                        | OCB SwitchLabels CCB                      {$$ = $2;}
+                        | OCB SwitchBlockStatementGroups CCB                {if(each_symboltable[$2]!=NULL){
+                                                                                pop_global(each_symboltable[$2]);
+                                                                                symboltables.push_back(each_symboltable[$2]);
+                                                                                each_symboltable[$2] = NULL;
+                                                                                $$ = $2;
+                                                                                }
+                                                                            }
+                        | OCB SwitchBlockStatementGroups SwitchLabels CCB   {if(each_symboltable[$2]!=NULL){
+                                                                                pop_global(each_symboltable[$2]);
+                                                                                symboltables.push_back(each_symboltable[$2]);
+                                                                                each_symboltable[$2] = NULL;
+                                                                                $$ = $2;
+                                                                                }
+                                                                            }
                         ;
-SwitchBlockStatementGroups  : SwitchBlockStatementGroup
-                            | SwitchBlockStatementGroups SwitchBlockStatementGroup
+SwitchBlockStatementGroups  : SwitchBlockStatementGroup             {$$ = $1;}    
+                            | SwitchBlockStatementGroups SwitchBlockStatementGroup  {if(each_symboltable[$1]!=NULL) $$=$1;
+                                                                            else $$ = $2;}
                             ;
-SwitchBlockStatementGroup   : SwitchLabels BlockStatements
+SwitchBlockStatementGroup   : SwitchLabels BlockStatements                  {$$ = $2;}
                             ;
-SwitchLabels            : SwitchLabel
-                        | SwitchLabels SwitchLabel
+SwitchLabels            : SwitchLabel                               {$$ = $1;}
+                        | SwitchLabels SwitchLabel                  {if(each_symboltable[$1]!=NULL) $$=$1;
+                                                                    else $$ = $2;}
                         ;
-SwitchLabel             : CASE ConstantExpression COLON
-                        | DEFAULT COLON
+SwitchLabel             : CASE ConstantExpression COLON             {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | DEFAULT COLON                             {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
-WhileStatement          : WHILE ONB Expression CNB Statement
+WhileStatement          : WHILE ONB Expression CNB Statement                {if(each_symboltable[$5]!=NULL){
+                                                                                pop_global(each_symboltable[$5]);
+                                                                                symboltables.push_back(each_symboltable[$5]);
+                                                                                each_symboltable[$5] = NULL;
+                                                                                $$ = $5;
+                                                                                }
+                                                                            }   
                         ;
-WhileStatementNoShortIf : WHILE ONB Expression CNB StatementNoShortIf
+WhileStatementNoShortIf : WHILE ONB Expression CNB StatementNoShortIf       {if(each_symboltable[$5]!=NULL){
+                                                                                pop_global(each_symboltable[$5]);
+                                                                                symboltables.push_back(each_symboltable[$5]);
+                                                                                each_symboltable[$5] = NULL;
+                                                                                $$ = $5;
+                                                                                }
+                                                                            }
                         ;
-DoStatement             : DO Statement WHILE ONB Expression CNB SEMICOLON
+DoStatement             : DO Statement WHILE ONB Expression CNB SEMICOLON   {if(each_symboltable[$2]!=NULL){
+                                                                                pop_global(each_symboltable[$2]);
+                                                                                symboltables.push_back(each_symboltable[$2]);
+                                                                                each_symboltable[$2] = NULL;
+                                                                                $$ = $2;
+                                                                                }
+                                                                            }
                         ;
-ForStatement            : FOR ONB SEMICOLON SEMICOLON   CNB Statement
-                        | FOR ONB ForInit SEMICOLON SEMICOLON CNB Statement
-                        | FOR ONB SEMICOLON Expression SEMICOLON CNB Statement
-                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB Statement
-                        | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB Statement
-                        | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB Statement
-                        | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB Statement
-                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB Statement
+ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(each_symboltable[$6]!=NULL){
+                                                                                pop_global(each_symboltable[$6]);
+                                                                                symboltables.push_back(each_symboltable[$6]);
+                                                                                each_symboltable[$6] = NULL;
+                                                                                $$ = $6;
+                                                                                }
+                                                                            }      
+                        | FOR ONB ForInit SEMICOLON SEMICOLON CNB Statement {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
+                                                                                }
+                                                                            }
+                        | FOR ONB SEMICOLON Expression SEMICOLON CNB Statement  {if(each_symboltable[$7]!=NULL){
+                                                                                pop_global(each_symboltable[$7]);
+                                                                                symboltables.push_back(each_symboltable[$7]);
+                                                                                each_symboltable[$7] = NULL;
+                                                                                $$ = $7;
+                                                                                }
+                                                                                }
+                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB Statement  {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
+                                                                                }
+                                                                            }
+                        | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB Statement   {if(each_symboltable[$7]!=NULL){
+                                                                                pop_global(each_symboltable[$7]);
+                                                                                symboltables.push_back(each_symboltable[$7]);
+                                                                                each_symboltable[$7] = NULL;
+                                                                                $$ = $7;
+                                                                                }
+                                                                                }
+                        | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB Statement   {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
+                                                                                }
+                                                                            }
+                        | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB Statement    {if(each_symboltable[$8]!=NULL){
+                                                                                pop_global(each_symboltable[$8]);
+                                                                                symboltables.push_back(each_symboltable[$8]);
+                                                                                each_symboltable[$8] = NULL;
+                                                                                $$ = $8;
+                                                                                }
+                                                                                }   
+                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB Statement    {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
+                                                                                }
+                                                                            }
                         ;
-ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON   CNB StatementNoShortIf
-                        | FOR ONB ForInit SEMICOLON SEMICOLON CNB StatementNoShortIf
-                        | FOR ONB SEMICOLON Expression SEMICOLON CNB StatementNoShortIf
-                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB StatementNoShortIf
-                        | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf
-                        | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf
-                        | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf
-                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf
+ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    {if(each_symboltable[$6]!=NULL){
+                                                                                pop_global(each_symboltable[$6]);
+                                                                                symboltables.push_back(each_symboltable[$6]);
+                                                                                each_symboltable[$6] = NULL;
+                                                                                $$ = $6;
+                                                                                }
+                                                                            }
+                        | FOR ONB ForInit SEMICOLON SEMICOLON CNB StatementNoShortIf    {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
+                                                                                }
+                                                                            }
+                        | FOR ONB SEMICOLON Expression SEMICOLON CNB StatementNoShortIf {if(each_symboltable[$7]!=NULL){
+                                                                                pop_global(each_symboltable[$7]);
+                                                                                symboltables.push_back(each_symboltable[$7]);
+                                                                                each_symboltable[$7] = NULL;
+                                                                                $$ = $7;
+                                                                                }
+                                                                            }
+                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB StatementNoShortIf {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
+                                                                                }
+                                                                            }
+                        | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf  {if(each_symboltable[$7]!=NULL){
+                                                                                pop_global(each_symboltable[$7]);
+                                                                                symboltables.push_back(each_symboltable[$7]);
+                                                                                each_symboltable[$7] = NULL;
+                                                                                $$ = $7;
+                                                                                }
+                                                                            }
+                        | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf  {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
+                                                                                }
+                                                                            }
+                        | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf   {if(each_symboltable[$8]!=NULL){
+                                                                                pop_global(each_symboltable[$8]);
+                                                                                symboltables.push_back(each_symboltable[$8]);
+                                                                                each_symboltable[$8] = NULL;
+                                                                                $$ = $8;
+                                                                                }
+                                                                            }
+                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf   {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
+                                                                                }
+                                                                            }
                         ;
-ForInit                 : StatementExpressionList
-                        | LocalVariableDeclaration
+ForInit                 : StatementExpressionList           {$$ = $1;}
+                        | LocalVariableDeclaration          {$$ = $1;}
                         ;
-ForUpdate               : StatementExpressionList
+ForUpdate               : StatementExpressionList           {$$ = $1;}
                         ;
-StatementExpressionList : StatementExpression
-                        | StatementExpressionList COMMA StatementExpression
+StatementExpressionList : StatementExpression               {$$ = $1;}
+                        | StatementExpressionList COMMA StatementExpression         {$$ = $1;}
                         ;
-BreakStatement          : BREAK SEMICOLON
-                        | BREAK IDENTIFIER  SEMICOLON
+BreakStatement          : BREAK SEMICOLON                           {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;}              
+                        | BREAK IDENTIFIER  SEMICOLON               {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
-ContinueStatement       : CONTINUE SEMICOLON
-                        | CONTINUE IDENTIFIER SEMICOLON
+ContinueStatement       : CONTINUE SEMICOLON                        {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | CONTINUE IDENTIFIER SEMICOLON             {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
-ReturnStatement         : RETURN SEMICOLON
-                        | RETURN Expression SEMICOLON
+ReturnStatement         : RETURN SEMICOLON                          {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | RETURN Expression SEMICOLON               {$$ = $2;} 
                         ;
-ThrowStatement          : THROW Expression  SEMICOLON
+ThrowStatement          : THROW Expression SEMICOLON                {$$ = $2;} 
                         ;
-SynchronizedStatement   : SYNCHRONIZED  ONB Expression CNB Block
+SynchronizedStatement   : SYNCHRONIZED  ONB Expression CNB Block    {$$ = $5;} 
                         ;
-TryStatement            : TRY Block Catches
-                        | TRY Block Finally 
-                        | TRY Block Catches Finally 
+TryStatement            : TRY Block Catches                         {$$ = $2;} 
+                        | TRY Block Finally                         {$$ = $2;} 
+                        | TRY Block Catches Finally                 {$$ = $2;} 
                         ;
-Catches                 : CatchClause
-                        | Catches CatchClause
+Catches                 : CatchClause                               {$$ = $1;} 
+                        | Catches CatchClause                       {$$ = $1;} 
                         ;
-CatchClause             : CATCH ONB FormalParameter CNB Block
+CatchClause             : CATCH ONB FormalParameter CNB Block       {$$ = $5;} 
                         ;
-Finally                 : FINALLY Block
+Finally                 : FINALLY Block                             {$$ = $2;} 
                         ;
 
-Primary                 : PrimaryNoNewArray
-                        | ArrayCreationExpression
+Primary                 : PrimaryNoNewArray                         {$$ = $1;}
+                        | ArrayCreationExpression                   {$$ = $1;}
                         ;
-PrimaryNoNewArray       : Literal
-                        | THIS
-                        | ONB Expression CNB
-                        | ClassInstanceCreationExpression
-                        | FieldAccess
-                        | MethodInvocation
-                        | ArrayAccess
+PrimaryNoNewArray       : Literal                                   {$$ = $1;}
+                        | THIS                                      {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | ONB Expression CNB                        {$$ = $2;}
+                        | ClassInstanceCreationExpression           {$$ = $1;}
+                        | FieldAccess                               {$$ = $1;}
+                        | MethodInvocation                          {$$ = $1;}
+                        | ArrayAccess                               {$$ = $1;}
                         ;
-ClassInstanceCreationExpression : NEW ClassType ONB CNB
-                                | NEW ClassType ONB ArgumentList CNB
+ClassInstanceCreationExpression : NEW ClassType ONB CNB             {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;}  
+                                | NEW ClassType ONB ArgumentList CNB    {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                                 ;
-ArgumentList            : Expression
-                        | ArgumentList COMMA Expression
+ArgumentList            : Expression                                
+                        | ArgumentList COMMA Expression             
                         ;
-ArrayCreationExpression : NEW PrimitiveType DimExprs 
-                        | NEW PrimitiveType DimExprs Dims 
-                        | NEW ClassOrInterfaceType DimExprs 
-                        | NEW ClassOrInterfaceType DimExprs Dims
+ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | NEW PrimitiveType DimExprs Dims           {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | NEW ClassOrInterfaceType DimExprs         {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | NEW ClassOrInterfaceType DimExprs Dims    {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
 DimExprs                : DimExpr
                         | DimExprs DimExpr
@@ -591,16 +867,32 @@ DimExpr                 : OSB Expression CSB
                         ;
 Dims                    : OSB CSB
                         | Dims OSB CSB
-                        ;
-FieldAccess             : Primary DOT IDENTIFIER
-                        | SUPER DOT IDENTIFIER
-                        ;
-MethodInvocation        : Name ONB CNB
-                        | Name ONB ArgumentList CNB
-                        | Primary DOT IDENTIFIER ONB CNB
-                        | Primary DOT IDENTIFIER ONB ArgumentList CNB
-                        | SUPER DOT IDENTIFIER ONB CNB
-                        | SUPER DOT IDENTIFIER ONB ArgumentList CNB
+                        ;   
+FieldAccess             : Primary DOT IDENTIFIER                    {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | SUPER DOT IDENTIFIER                      {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        ;   
+MethodInvocation        : Name ONB CNB                              {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | Name ONB ArgumentList CNB                 {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | Primary DOT IDENTIFIER ONB CNB            {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | Primary DOT IDENTIFIER ONB ArgumentList CNB   {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | SUPER DOT IDENTIFIER ONB CNB              {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | SUPER DOT IDENTIFIER ONB ArgumentList CNB {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
 ArrayAccess             : Name OSB Expression CSB
                         | PrimaryNoNewArray OSB Expression CSB
@@ -610,9 +902,13 @@ PostfixExpression       : Primary
                         | PostIncrementExpression
                         | PostDecrementExpression
                         ;
-PostIncrementExpression : PostfixExpression INC
-                        ;
-PostDecrementExpression : PostfixExpression DEC
+PostIncrementExpression : PostfixExpression INC                     {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        ;   
+PostDecrementExpression : PostfixExpression DEC                     {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
 UnaryExpression         : PreIncrementExpression
                         | PreDecrementExpression
@@ -620,9 +916,13 @@ UnaryExpression         : PreIncrementExpression
                         | MINUS UnaryExpression
                         | UnaryExpressionNotPlusMinus
                         ;
-PreIncrementExpression  : INC UnaryExpression
+PreIncrementExpression  : INC UnaryExpression                       {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
-PreDecrementExpression  : DEC UnaryExpression
+PreDecrementExpression  : DEC UnaryExpression                       {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
 UnaryExpressionNotPlusMinus : PostfixExpression
                             | NEG UnaryExpression
@@ -672,10 +972,16 @@ ConditionalOrExpression : ConditionalAndExpression
 ConditionalExpression   : ConditionalOrExpression
                         | ConditionalOrExpression QM Expression COLON ConditionalExpression
                         ;
-AssignmentExpression    : ConditionalExpression
-                        | Assignment
+AssignmentExpression    : ConditionalExpression         {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
+                        | Assignment                    {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
-Assignment              : LeftHandSide Assignment_Operators AssignmentExpression
+Assignment              : LeftHandSide Assignment_Operators AssignmentExpression    {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
 Assignment_Operators    : ASSIGNMENT_OPERATOR
                         | EQ
@@ -684,9 +990,13 @@ LeftHandSide            : Name
                         | FieldAccess
                         | ArrayAccess
                         ;
-Expression              : AssignmentExpression
+Expression              : AssignmentExpression                      {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
-ConstantExpression      : Expression
+ConstantExpression      : Expression                                {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
 
 %%                    
@@ -719,7 +1029,19 @@ int main (int argc, char** argv) {
         nlist* temp = symboltables[i];
         while(temp!=NULL)
         {
-            outfile << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.argumentsordimension << endl;
+            outfile << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << ", ARGS: ";
+            list* a = temp->info.args;
+            if(a!=NULL)
+            {
+                outfile << a->val << "(" << a->dim << ")";
+                a = a->next;
+                while(a!=NULL)
+                {
+                    outfile << ", " << a->val << "(" << a->dim << ")";
+                    a = a->next;
+                }
+            }
+            outfile << endl;
             temp = temp->next;
         }
         outfile << endl; 
