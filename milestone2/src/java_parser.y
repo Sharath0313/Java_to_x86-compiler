@@ -20,6 +20,7 @@ int node = 0;
 struct list{
     char* val;
     int dim;
+    char* initializer;
     struct list* next;
     struct list* prev;
 } typedef list;
@@ -28,9 +29,10 @@ struct symrec{
     char *name,*datatype;
     int lineno,type,dimension;       // 1->localvar 2->class 3->method 4->import 5->package
     list* args;
+    bool mod;
 } typedef symrec;
 
-symrec create_symrec(char* name, char* datatype, int lineno, int type, int dimension, list* args){
+symrec create_symrec(char* name, char* datatype, int lineno, int type, int dimension, list* args, bool mod){
 
     symrec temp;
     temp.name = name;
@@ -39,6 +41,7 @@ symrec create_symrec(char* name, char* datatype, int lineno, int type, int dimen
     temp.type = type;
     temp.dimension = dimension;
     temp.args = args;
+    temp.mod = mod;
 
     return temp;
 
@@ -50,10 +53,10 @@ struct nlist{
     struct nlist* prev;
 } typedef nlist;
 
-nlist* create_nlist(char* name, char* datatype, int lineno, int type, int dimension, list* args){
+nlist* create_nlist(char* name, char* datatype, int lineno, int type, int dimension, list* args, bool mod){
 
     nlist* temp = new nlist;
-    symrec t = create_symrec(name, datatype, lineno, type, dimension, args);
+    symrec t = create_symrec(name, datatype, lineno, type, dimension, args, mod);
     temp->info = t;
     temp->next = NULL;
     temp->prev = NULL;
@@ -74,6 +77,7 @@ list* create_list(char* val, int dim){
 
 }
 
+nlist* find_global(nlist*,char* id);
 map<int, list*> nt;
 map<int, list*> args;
 map<int, nlist*> each_symboltable;
@@ -81,8 +85,9 @@ map<int, int> parents;
 vector<nlist*> symboltables;
 map<string, nlist*> classtable;
 map<string, nlist*> interfacetable;
-nlist* Global = create_nlist("global", "none", -1, -1, -1, NULL);
+nlist* Global = create_nlist("System.out.println", "void", -1, 3, 0, create_list("all",0), true);
 nlist* global_tail = Global;
+map<string, int> types;
 
 void out(nlist* t){
     
@@ -96,29 +101,41 @@ void out(nlist* t){
 
 }
 
-nlist* clone(nlist* l){
+nlist* clone(nlist* l, bool super){
 
-    nlist* k = NULL;
+    nlist* k = create_nlist("", "", -1, -1, -1, NULL, false);
     nlist* a = l;
-    if(a==NULL)return k;
-
-    k = create_nlist(a->info.name, a->info.datatype, a->info.lineno, a->info.type, a->info.dimension, a->info.args);
+    if(a==NULL)return NULL;
     nlist* t = k;
-    a = a->next;
+    
 
     while(a!=NULL){
-        t->next = create_nlist(a->info.name, a->info.datatype, a->info.lineno, a->info.type, a->info.dimension, a->info.args);
-        t->next->prev = t;
+        if(a->info.mod)
+        {
+            t->next = create_nlist(a->info.name, a->info.datatype, a->info.lineno, a->info.type, a->info.dimension, a->info.args, a->info.mod);
+            t->next->prev = t;
+            t = t->next;
+            if(super)
+            {
+                string p = "super.";
+                char* z = const_cast<char*>(p.c_str());
+                strcat(z,a->info.name);
+                t->next = create_nlist(strdup(z), a->info.datatype, a->info.lineno, a->info.type, a->info.dimension, a->info.args, a->info.mod);
+                t->next->prev = t;
+                t = t->next;
+            }
+        }
         a = a->next;
-        t = t->next;
     }
     
-    return k;
+    return k->next;
 
 }
 
-void push_global(nlist* nl){
+void push_global(nlist* &nl){
     
+    if(nl == NULL)return;
+
     global_tail->next = nl;
     nl->prev = global_tail;
 
@@ -128,16 +145,19 @@ void push_global(nlist* nl){
 
 }
 
-void pop_global(nlist* nl){
+void pop_global(nlist* &nl){
+
+    if(nl==NULL) return;
 
     global_tail = nl->prev;
+    nl->prev = NULL;
     global_tail->next = NULL;
 
     return ;
 
 }
 
-void merge(list* n1, list* n2){
+void merge(list* &n1, list* n2){
 
     list* temp = n1;
     if(temp == NULL)
@@ -158,99 +178,66 @@ void merge(list* n1, list* n2){
 
 }
 
-nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension, list* args){
+void mergen(nlist* &n1, nlist* n2){
+
+    nlist* temp = n1;
+    if(temp == NULL)
+    {
+        n1 = n2;
+        return ;
+    }
+    if(n2 == NULL)
+    return ;
+
+    while(temp->next!=NULL)temp = temp->next;
+
+    temp->next = n2;
+    if(n2 != NULL)
+    n2->prev = temp;
+
+    return ;
+
+}
+
+nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension, list* args, bool mod){
 
     if(datatype == NULL || datatype->next != NULL)
     return NULL;
 
-    if(!strcmp(datatype->val,"int") || !strcmp(datatype->val,"long") || !strcmp(datatype->val,"char") || !strcmp(datatype->val,"float") || !strcmp(datatype->val,"double") || !strcmp(datatype->val,"String") || !strcmp(datatype->val,"class") || !strcmp(datatype->val,"interface") || !strcmp(datatype->val,"void"))
+    if(types.find(datatype->val)!=types.end())
     {
         list* temp = name;
-        nlist* k = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args);
+        if(find_global(global_tail, temp->val)) yyerror("variable with name already exists");
+        nlist* k = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args, mod);
         nlist* t = k;
         temp = temp->next;
 
         while(temp!=NULL)
         {
-            t->next = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args);
+            if(find_global(t,temp->val)) yyerror("variable with name already exists");
+            t->next = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args, mod);
             t->next->prev = t;
             t = t->next;
             temp = temp->next;
         }
-
         return k;
     }
-    else if(classtable.find(datatype->val)!=classtable.end())
+    else if(type == 4 || type == 5)
     {
-        nlist* k = clone(classtable[datatype->val]);
-        nlist* temp = k;
-        list* t = name;
-        nlist* prev = NULL;
-        t->val = strcat(t->val,".");
+        list* temp = name;
+        nlist* k = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args, mod);
+        nlist* t = k;
+        temp = temp->next;
+
         while(temp!=NULL)
         {
-            char *z = strdup(t->val);
-            temp->info.name = strcat(z,temp->info.name);
-            prev = temp;
-            temp = temp->next;
-        }
-        t = t->next;
-
-        while(t!=NULL)
-        {
-            temp = prev;
-            temp->next = clone(classtable[datatype->val]);
-            temp->next->prev = temp;
-            temp = temp->next;
-            t->val = strcat(t->val,".");
-            while(temp!=NULL)
-            {
-                char *z = strdup(t->val);
-                temp->info.name = strcat(z,temp->info.name);
-                prev = temp;
-                temp = temp->next;
-            }
+            t->next = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args, mod);
+            t->next->prev = t;
             t = t->next;
-        }
-
-        return k;
-
-    }
-    else if(interfacetable.find(datatype->val)!=interfacetable.end())
-    {
-        nlist* k = clone(interfacetable[datatype->val]);
-        nlist* temp = k;
-        list* t = name;
-        nlist* prev = NULL;
-        t->val = strcat(t->val,".");
-        while(temp!=NULL)
-        {
-            char *z = strdup(t->val);
-            temp->info.name = strcat(z,temp->info.name);
-            prev = temp;
             temp = temp->next;
         }
-        t = t->next;
-
-        while(t!=NULL)
-        {
-            temp = prev;
-            temp->next = clone(interfacetable[datatype->val]);
-            temp->next->prev = temp;
-            temp = temp->next;
-            t->val = strcat(t->val,".");
-            while(temp!=NULL)
-            {
-                char *z = strdup(t->val);
-                temp->info.name = strcat(z,temp->info.name);
-                prev = temp;
-                temp = temp->next;
-            }
-            t = t->next;
-        }
-
+        types[name->val] = 1;
         return k;
-
     }
     else
     {
@@ -259,6 +246,14 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension
     } 
 }
 
+nlist* find_global(nlist* tail, char* id){
+    nlist* t = tail;
+    while(t){
+        if(!strcmp(t->info.name, id)) return t;
+        t = t->prev;
+    }
+    return NULL;
+}
 
 %}
 
@@ -266,6 +261,7 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension
     int num;
     char id;
     char* str;
+    bool b;
 }
 
 %start START 
@@ -276,8 +272,9 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension
 %token<str> CATCH TRY FINALLY VOLATILE NATIVE WHILE   
 %token<str> INC DEC RELAND RELOR RELEQ RELNOTEQ 
 %token<str> PACKAGE IMPORT SEMICOLON DOT STAR OSB CSB OCB CCB ONB CNB COMMA COLON PLUS MINUS NEG NOT DIV MOD AND UP OR QM EQ
+%type<b>    Modifier Modifiers
 %type<num>  START CompilationUnit ImportDeclarations TypeDeclarations PackageDeclaration ImportDeclaration SingleTypeImportDeclaration  
-%type<num>  TypeImportOnDemandDeclaration TypeDeclaration  Name SingleName MultipleName Modifiers Modifier Type PrimitiveType ReferenceType ClassHeader
+%type<num>  TypeImportOnDemandDeclaration TypeDeclaration Name SingleName MultipleName Type PrimitiveType ReferenceType ClassHeader
 %type<num>  NumericType ClassOrInterfaceType ClassType ArrayType ClassDeclaration ClassBody ClassBodyDeclarations InterfaceHeader Super
 %type<num>  ClassBodyDeclaration ClassMemberDeclaration FieldDeclaration VariableDeclarators VariableDeclarator VariableDeclaratorId VariableInitializer
 %type<num>  MethodDeclaration MethodHeader MethodDeclarator FormalParameterList FormalParameter MethodBody StaticInitializer
@@ -319,7 +316,7 @@ TypeDeclarations        : TypeDeclaration                           {$$ = $1;}
                         ;
 PackageDeclaration      : PACKAGE Name SEMICOLON                    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 5, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 5, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);}
                         ;
 ImportDeclaration       : SingleTypeImportDeclaration               {$$ = $1;}
@@ -334,12 +331,19 @@ SingleTypeImportDeclaration : IMPORT Name SEMICOLON                 {$$ = node;
                                                                         if(k[i]=='.') temp = "";
                                                                     }
                                                                     nt[$2]->val = const_cast<char*>(temp.c_str());
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 4, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 4, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);}  
                             ;
 TypeImportOnDemandDeclaration   : IMPORT Name DOT STAR SEMICOLON    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 4, 0, NULL);
+                                                                    string temp;
+                                                                    string k = nt[$2]->val;
+                                                                    for(int i=0; i<k.size(); i++){
+                                                                        temp += k[i];
+                                                                        if(k[i]=='.') temp = "";
+                                                                    }
+                                                                    nt[$2]->val = const_cast<char*>(temp.c_str());
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 4, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);}
                                 ;
 TypeDeclaration         : ClassDeclaration                          {$$ = $1;}
@@ -383,43 +387,13 @@ MultipleName            : Name DOT IDENTIFIER           {strcat(nt[$1]->val,$2);
                                                         strcat(nt[$1]->val,$3);
                                                         $$ = $1;} 
                         ;
-
-Modifiers               : Modifier                      {$$ = $1;}
-                        | Modifiers Modifier            {if(each_symboltable[$1]!=NULL) $$ = $1;
-                                                        else $$ = $2;}
-                        ;   
-Modifier                : PUBLIC                    {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | PROTECTED                 {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | PRIVATE                   {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | STATIC                    {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | ABSTRACT                  {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | FINAL                     {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | NATIVE                    {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | SYNCHRONIZED              {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | TRANSIENT                 {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
-                        | VOLATILE                  {$$ = node;
-                                                    node ++;
-                                                    each_symboltable[$$] = NULL;}
+Modifiers               : STATIC Modifier           {$$ = $2;}
+                        | Modifier STATIC           {$$ = $1;}
+                        | Modifier                  {$$ = $1;}
+                        | STATIC                    {$$ = true;}
                         ;
-
+Modifier                : PUBLIC                    {$$ = true;}
+                        | PRIVATE                   {$$ = false;}
 Type                    : PrimitiveType                 {$$ = $1;}
                         | ReferenceType                 {$$ = $1;}
                         ;
@@ -454,11 +428,16 @@ ArrayType               : PrimitiveType OSB CSB                     {nt[$1]->dim
                                                                     $$ = $1;} 
                         ;
 
-ClassDeclaration        : ClassHeader ClassBody                             {$$ = $1;
+ClassDeclaration        : ClassHeader ClassBody                             {
+                                                                            $$ = $1;
                                                                             if(each_symboltable[$2]!=NULL){
                                                                                 pop_global(each_symboltable[$2]);
                                                                                 symboltables.push_back(each_symboltable[$2]);
-                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) classtable[each_symboltable[$1]->info.name] = each_symboltable[$2];
+                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
+                                                                                    classtable[each_symboltable[$1]->info.name] = each_symboltable[$2];
+                                                                                    types[each_symboltable[$1]->info.name] = 1;
+                                                                                    // cout << each_symboltable[$1]->info.name << endl;
+                                                                                }
                                                                                 else yyerror("Class already exists.");
                                                                                 each_symboltable[$2] = NULL;
                                                                                 }
@@ -467,25 +446,48 @@ ClassDeclaration        : ClassHeader ClassBody                             {$$ 
                                                                             if(each_symboltable[$2]!=NULL){
                                                                                 pop_global(each_symboltable[$2]);
                                                                                 symboltables.push_back(each_symboltable[$2]);
-                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) classtable[each_symboltable[$1]->info.name] = each_symboltable[$2];
+                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
+                                                                                    types[each_symboltable[$1]->info.name] = 1;
+                                                                                    // cout << each_symboltable[$1]->info.name << endl;
+                                                                                    classtable[each_symboltable[$1]->info.name] = NULL;
+                                                                                    nlist* c1 = clone(classtable[nt[$2]->val], false);
+                                                                                    mergen(classtable[each_symboltable[$1]->info.name], c1);
+                                                                                    nlist* c2 = clone(each_symboltable[$3], false);
+                                                                                    mergen(classtable[each_symboltable[$1]->info.name], c2);
+                                                                                }
+                                                                                else yyerror("Class already exists.");
+                                                                                each_symboltable[$2] = NULL;
+                                                                                }
+                                                                            else{
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
+                                                                                    classtable[each_symboltable[$1]->info.name] = each_symboltable[$3];
+                                                                                    types[each_symboltable[$1]->info.name] = 1;
+                                                                                    // cout << each_symboltable[$1]->info.name << endl;
+                                                                                }
                                                                                 else yyerror("Class already exists.");
                                                                                 each_symboltable[$2] = NULL;
                                                                                 }
                                                                             }
                         ;
-ClassHeader             : CLASS IDENTIFIER                              {$$ = node;
+ClassHeader             : CLASS IDENTIFIER                              {
+                                                                        $$ = node;
                                                                         node++;
-                                                                        each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL);
+                                                                        each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL, true);
                                                                         push_global(each_symboltable[$$]);}
-                        | Modifiers CLASS IDENTIFIER                    {$$ = node;
+                        | Modifiers CLASS IDENTIFIER                    {
+                                                                        $$ = node;
                                                                         node++;
-                                                                        each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL);
+                                                                        each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL, $1);
                                                                         push_global(each_symboltable[$$]);}
                         ;
 Super                   : EXTENDS ClassType                             {$$ = node;
                                                                         node++;
+                                                                        nt[$$] = nt[$2];
                                                                         if(classtable.find(nt[$2]->val)!=classtable.end()) {
-                                                                            each_symboltable[$$] = clone(classtable[nt[$2]->val]);
+                                                                            nlist* c3 = clone(classtable[nt[$2]->val], true);
+                                                                            each_symboltable[$$] = c3;
                                                                             push_global(each_symboltable[$$]);
                                                                         }
                                                                         else yyerror("Class not found");}             
@@ -505,13 +507,14 @@ ClassBodyDeclaration    : ClassMemberDeclaration    {$$ = $1;}
 ClassMemberDeclaration  : FieldDeclaration          {$$ = $1;}
                         | MethodDeclaration         {$$ = $1;}
                         ;
-FieldDeclaration        : Type VariableDeclarators SEMICOLON        {$$ = node;
+FieldDeclaration        : Type VariableDeclarators SEMICOLON        {
+                                                                    $$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);}
                         | Modifiers Type VariableDeclarators SEMICOLON  {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$3], nt[$2], yylineno, 1, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$3], nt[$2], yylineno, 1, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);  }
                         ;
 VariableDeclarators     : VariableDeclarator                            {$$ = $1;}
@@ -534,28 +537,34 @@ MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;}
                         ;
 MethodHeader            : Type MethodDeclarator                     {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$2];}          
+                                                                    each_symboltable[$$]->info.args = args[$2];
+                                                                    $$ = $2;}          
                         | Modifiers Type MethodDeclarator           {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$3], nt[$1], yylineno, 3, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$3], nt[$1], yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$3];}
+                                                                    each_symboltable[$$]->info.args = args[$3];
+                                                                    $$ = $3;}
                         | VOID MethodDeclarator                     {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 3, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$2];}
+                                                                    each_symboltable[$$]->info.args = args[$2];
+                                                                    $$ = $2;}
                         | Modifiers VOID MethodDeclarator           {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$3], create_list($2, 0), yylineno, 3, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$3], create_list($2, 0), yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$3];}
+                                                                    each_symboltable[$$]->info.args = args[$3];
+                                                                    $$ = $3;}
                         ;
 MethodDeclarator        : SingleName ONB CNB                            {$$ = $1;}
-                        | SingleName ONB FormalParameterList CNB        {$$ = $1;
-                                                                        args[$$] = nt[$3];}
+                        | SingleName ONB FormalParameterList CNB        {$$ = $3;
+                                                                        list* k = nt[$3];
+                                                                        nt[$$] = nt[$1];
+                                                                        args[$$] = k;}
                         | MethodDeclarator OSB CSB                      {$$ = $1;}
                         ;
 FormalParameterList     : FormalParameter                               {$$ = $1;}
@@ -564,7 +573,7 @@ FormalParameterList     : FormalParameter                               {$$ = $1
                         ;
 FormalParameter         : Type VariableDeclaratorId                 {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
                                                                     nt[$$] = nt[$1];}            
                         ;
@@ -577,12 +586,12 @@ StaticInitializer       : STATIC Block              {$$ = $2;}
                         ;
 ConstructorDeclaration  : ConstructorDeclarator ConstructorBody         {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$1], create_list("Constructor", 0), yylineno, 3, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$1], create_list("Constructor", 0), yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$1];}
                         | Modifiers ConstructorDeclarator ConstructorBody   {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list("Constructor", 0), yylineno, 3, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$2], create_list("Constructor", 0), yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$2];}
                         ;
@@ -621,7 +630,10 @@ InterfaceDeclaration    : InterfaceHeader InterfaceBody                     {$$ 
                                                                             if(each_symboltable[$2]!=NULL){
                                                                                 pop_global(each_symboltable[$2]);
                                                                                 symboltables.push_back(each_symboltable[$2]);
-                                                                                if(interfacetable.find(each_symboltable[$1]->info.name)==interfacetable.end()) interfacetable[each_symboltable[$1]->info.name] = each_symboltable[$2];
+                                                                                if(interfacetable.find(each_symboltable[$1]->info.name)==interfacetable.end()) {
+                                                                                    interfacetable[each_symboltable[$1]->info.name] = each_symboltable[$2];
+                                                                                    types[each_symboltable[$1]->info.name] = 1;
+                                                                                }
                                                                                 else yyerror("Interface already exists.");
                                                                                 each_symboltable[$2] = NULL;
                                                                                 }
@@ -629,11 +641,11 @@ InterfaceDeclaration    : InterfaceHeader InterfaceBody                     {$$ 
                         ;
 InterfaceHeader         : INTERFACE IDENTIFIER                          {$$ = node;
                                                                         node++;
-                                                                        each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL);
+                                                                        each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL, true);
                                                                         push_global(each_symboltable[$$]);}
                         | Modifiers INTERFACE IDENTIFIER                {$$ = node;
                                                                         node++;
-                                                                        each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL);
+                                                                        each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL, $1);
                                                                         push_global(each_symboltable[$$]);}
                         ;
 InterfaceBody           : OCB CCB                                   {$$ = node;
@@ -683,7 +695,7 @@ LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON    {$$ 
                                     ;
 LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL);
+                                                                    each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);  }   
                             ;
 Statement               : StatementWithoutTrailingSubstatement      {$$ = $1;}   
@@ -1152,6 +1164,16 @@ ConstantExpression      : Expression                                {$$ = node;
 
 int main (int argc, char** argv) {
 
+    types["int"] = 1;
+    types["long"] = 1;
+    types["char"] = 1;
+    types["float"] = 1;
+    types["double"] = 1;
+    types["String"] = 1;
+    types["class"] = 1;
+    types["interface"] = 1;
+    types["void"] = 1;
+
     if(argc!=3)
     {
         cout << "The syntax for execution is: program input_filename output_filename" << endl;
@@ -1168,7 +1190,7 @@ int main (int argc, char** argv) {
     yyparse();
     fclose(infile);
 
-    // out(Global);
+    symboltables.push_back(Global);
 
     outfile << "Name, " << "DataType, " << "LineNO, " << "Type, " << "ArgumentsOrDimensions" << endl << endl;
 
