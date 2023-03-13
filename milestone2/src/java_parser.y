@@ -77,7 +77,7 @@ list* create_list(char* val, int dim){
 
 }
 
-nlist* find_global(nlist*,char* id);
+nlist* find_in_list(nlist*,char* id);
 map<int, list*> nt;
 map<int, list*> args;
 map<int, nlist*> each_symboltable;
@@ -207,14 +207,14 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension
     if(types.find(datatype->val)!=types.end())
     {
         list* temp = name;
-        if(find_global(global_tail, temp->val)) yyerror("variable with name already exists");
+        if(find_in_list(global_tail, temp->val)) yyerror("variable with name already exists");
         nlist* k = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args, mod);
         nlist* t = k;
         temp = temp->next;
 
         while(temp!=NULL)
         {
-            if(find_global(t,temp->val)) yyerror("variable with name already exists");
+            if(find_in_list(t,temp->val)) yyerror("variable with name already exists");
             t->next = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args, mod);
             t->next->prev = t;
             t = t->next;
@@ -318,7 +318,7 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension
     } 
 }
 
-nlist* find_global(nlist* tail, char* id){
+nlist* find_in_list(nlist* tail, char* id){
     nlist* t = tail;
     while(t){
         if(!strcmp(t->info.name, id)) return t;
@@ -518,7 +518,7 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                 symboltables.push_back(each_symboltable[$2]);
                                                                                 if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
                                                                                     classtable[each_symboltable[$1]->info.name] = NULL;
-                                                                                    nlist* c1 = clone(classtable[nt[$2]->val], true);
+                                                                                    nlist* c1 = clone(classtable[nt[$2]->val], false);
                                                                                     mergen(classtable[each_symboltable[$1]->info.name], c1);
                                                                                     nlist* c2 = clone(each_symboltable[$3], false);
                                                                                     mergen(classtable[each_symboltable[$1]->info.name], c2);
