@@ -14,6 +14,7 @@ using namespace std;
 [/][*][^*]*[*]+([^*/][^*]*[*]+)*[/]|[/][/].*[\n]|[ \t\n\r\f]|[\r][\n] ;
 int|long|char {yylval.str = strdup(yytext);return INTEGRALTYPE;}
 float|double {yylval.str = strdup(yytext);return FLOATINGPOINTTYPE;}
+String {yylval.str = strdup(yytext);return STRINGTYPE;}
 boolean {yylval.str = strdup(yytext);return BOOLEAN;}
 extends {yylval.str = strdup(yytext);return EXTENDS;}
 super {yylval.str = strdup(yytext);return SUPER;}

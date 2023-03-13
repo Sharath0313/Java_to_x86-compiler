@@ -74,34 +74,48 @@ list* create_list(char* val, int dim){
 
 }
 
-nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension, list* args){
-
-    if(datatype == NULL || datatype->next != NULL)
-    return NULL;
-
-    list* temp = name;
-    nlist* k = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args);
-    nlist* t = k;
-    temp = temp->next;
-
-    while(temp!=NULL)
-    {
-        t->next = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args);
-        t->next->prev = t;
-        t = t->next;
-        temp = temp->next;
-    }
-
-    return k;
-}
-
 map<int, list*> nt;
 map<int, list*> args;
 map<int, nlist*> each_symboltable;
 map<int, int> parents;
 vector<nlist*> symboltables;
+map<string, nlist*> classtable;
+map<string, nlist*> interfacetable;
 nlist* Global = create_nlist("global", "none", -1, -1, -1, NULL);
 nlist* global_tail = Global;
+
+void out(nlist* t){
+    
+    nlist* temp = t;
+    while(temp!=NULL){
+        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << endl;
+        temp = temp->next;
+    }
+
+    return ;
+
+}
+
+nlist* clone(nlist* l){
+
+    nlist* k = NULL;
+    nlist* a = l;
+    if(a==NULL)return k;
+
+    k = create_nlist(a->info.name, a->info.datatype, a->info.lineno, a->info.type, a->info.dimension, a->info.args);
+    nlist* t = k;
+    a = a->next;
+
+    while(a!=NULL){
+        t->next = create_nlist(a->info.name, a->info.datatype, a->info.lineno, a->info.type, a->info.dimension, a->info.args);
+        t->next->prev = t;
+        a = a->next;
+        t = t->next;
+    }
+    
+    return k;
+
+}
 
 void push_global(nlist* nl){
     
@@ -144,17 +158,107 @@ void merge(list* n1, list* n2){
 
 }
 
-void out(nlist* t){
-    
-    nlist* temp = t;
-    while(temp!=NULL){
-        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << endl;
+nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension, list* args){
+
+    if(datatype == NULL || datatype->next != NULL)
+    return NULL;
+
+    if(!strcmp(datatype->val,"int") || !strcmp(datatype->val,"long") || !strcmp(datatype->val,"char") || !strcmp(datatype->val,"float") || !strcmp(datatype->val,"double") || !strcmp(datatype->val,"String") || !strcmp(datatype->val,"class") || !strcmp(datatype->val,"interface") || !strcmp(datatype->val,"void"))
+    {
+        list* temp = name;
+        nlist* k = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args);
+        nlist* t = k;
         temp = temp->next;
+
+        while(temp!=NULL)
+        {
+            t->next = create_nlist(temp->val, datatype->val, lineno, type, dimension + temp->dim + datatype->dim, args);
+            t->next->prev = t;
+            t = t->next;
+            temp = temp->next;
+        }
+
+        return k;
     }
+    else if(classtable.find(datatype->val)!=classtable.end())
+    {
+        nlist* k = clone(classtable[datatype->val]);
+        nlist* temp = k;
+        list* t = name;
+        nlist* prev = NULL;
+        t->val = strcat(t->val,".");
+        while(temp!=NULL)
+        {
+            char *z = strdup(t->val);
+            temp->info.name = strcat(z,temp->info.name);
+            prev = temp;
+            temp = temp->next;
+        }
+        t = t->next;
 
-    return ;
+        while(t!=NULL)
+        {
+            temp = prev;
+            temp->next = clone(classtable[datatype->val]);
+            temp->next->prev = temp;
+            temp = temp->next;
+            t->val = strcat(t->val,".");
+            while(temp!=NULL)
+            {
+                char *z = strdup(t->val);
+                temp->info.name = strcat(z,temp->info.name);
+                prev = temp;
+                temp = temp->next;
+            }
+            t = t->next;
+        }
 
+        return k;
+
+    }
+    else if(interfacetable.find(datatype->val)!=interfacetable.end())
+    {
+        nlist* k = clone(interfacetable[datatype->val]);
+        nlist* temp = k;
+        list* t = name;
+        nlist* prev = NULL;
+        t->val = strcat(t->val,".");
+        while(temp!=NULL)
+        {
+            char *z = strdup(t->val);
+            temp->info.name = strcat(z,temp->info.name);
+            prev = temp;
+            temp = temp->next;
+        }
+        t = t->next;
+
+        while(t!=NULL)
+        {
+            temp = prev;
+            temp->next = clone(interfacetable[datatype->val]);
+            temp->next->prev = temp;
+            temp = temp->next;
+            t->val = strcat(t->val,".");
+            while(temp!=NULL)
+            {
+                char *z = strdup(t->val);
+                temp->info.name = strcat(z,temp->info.name);
+                prev = temp;
+                temp = temp->next;
+            }
+            t = t->next;
+        }
+
+        return k;
+
+    }
+    else
+    {
+        yyerror("Type not found.");
+        return NULL;
+    } 
 }
+
 
 %}
 
@@ -166,15 +270,15 @@ void out(nlist* t){
 
 %start START 
 %token<str> INTEGRALTYPE FLOATINGPOINTTYPE BOOL_LITERAL ASSIGNMENT_OPERATOR SHIFT RELGL INT_LITERAL FLOAT_LITERAL CHAR_LITERAL STRING_LITERAL TEXT_BLOCK IDENTIFIER NULL_LITERAL
-%token<str> BOOLEAN EXTENDS SUPER INTERFACE PUBLIC PROTECTED PRIVATE ABSTRACT
+%token<str> BOOLEAN EXTENDS SUPER INTERFACE PUBLIC PROTECTED PRIVATE ABSTRACT STRINGTYPE
 %token<str> STATIC FINAL DEFAULT CLASS IMPLEMENTS THROWS THIS SYNCHRONIZED 
 %token<str> VOID SWITCH CONTINUE FOR NEW IF DO BREAK THROW ELSE CASE INSTANCEOF RETURN TRANSIENT 
 %token<str> CATCH TRY FINALLY VOLATILE NATIVE WHILE   
 %token<str> INC DEC RELAND RELOR RELEQ RELNOTEQ 
 %token<str> PACKAGE IMPORT SEMICOLON DOT STAR OSB CSB OCB CCB ONB CNB COMMA COLON PLUS MINUS NEG NOT DIV MOD AND UP OR QM EQ
 %type<num>  START CompilationUnit ImportDeclarations TypeDeclarations PackageDeclaration ImportDeclaration SingleTypeImportDeclaration  
-%type<num>  TypeImportOnDemandDeclaration TypeDeclaration  Name SingleName MultipleName Modifiers Modifier Type PrimitiveType ReferenceType Classheader
-%type<num>  NumericType ClassOrInterfaceType ClassType ArrayType ClassDeclaration ClassBody ClassBodyDeclarations
+%type<num>  TypeImportOnDemandDeclaration TypeDeclaration  Name SingleName MultipleName Modifiers Modifier Type PrimitiveType ReferenceType ClassHeader
+%type<num>  NumericType ClassOrInterfaceType ClassType ArrayType ClassDeclaration ClassBody ClassBodyDeclarations InterfaceHeader Super
 %type<num>  ClassBodyDeclaration ClassMemberDeclaration FieldDeclaration VariableDeclarators VariableDeclarator VariableDeclaratorId VariableInitializer
 %type<num>  MethodDeclaration MethodHeader MethodDeclarator FormalParameterList FormalParameter MethodBody StaticInitializer
 %type<num>  ConstructorDeclaration ConstructorDeclarator ConstructorBody ExplicitConstructorInvocation InterfaceDeclaration InterfaceBody
@@ -323,6 +427,9 @@ PrimitiveType           : NumericType                   {$$ = $1;}
                         | BOOLEAN                       {$$ = node;
                                                         node++;
                                                         nt[$$] = create_list($1, 0);}
+                        | STRINGTYPE                    {$$ = node;
+                                                        node++;
+                                                        nt[$$] = create_list($1, 0);}
                         ;
 NumericType             : INTEGRALTYPE                  {$$ = node;
                                                         node++;
@@ -330,6 +437,7 @@ NumericType             : INTEGRALTYPE                  {$$ = node;
                         | FLOATINGPOINTTYPE             {$$ = node;
                                                         node++;
                                                         nt[$$] = create_list($1, 0);}
+                        
                         ;
 ReferenceType           : ClassOrInterfaceType          {$$ = $1;} 
                         | ArrayType                     {$$ = $1;}
@@ -346,9 +454,26 @@ ArrayType               : PrimitiveType OSB CSB                     {nt[$1]->dim
                                                                     $$ = $1;} 
                         ;
 
-ClassDeclaration        : Classheader ClassBody                         {$$ = $1;}
+ClassDeclaration        : ClassHeader ClassBody                             {$$ = $1;
+                                                                            if(each_symboltable[$2]!=NULL){
+                                                                                pop_global(each_symboltable[$2]);
+                                                                                symboltables.push_back(each_symboltable[$2]);
+                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) classtable[each_symboltable[$1]->info.name] = each_symboltable[$2];
+                                                                                else yyerror("Class already exists.");
+                                                                                each_symboltable[$2] = NULL;
+                                                                                }
+                                                                            } 
+                        | ClassHeader Super ClassBody                       {$$ = $1;
+                                                                            if(each_symboltable[$2]!=NULL){
+                                                                                pop_global(each_symboltable[$2]);
+                                                                                symboltables.push_back(each_symboltable[$2]);
+                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) classtable[each_symboltable[$1]->info.name] = each_symboltable[$2];
+                                                                                else yyerror("Class already exists.");
+                                                                                each_symboltable[$2] = NULL;
+                                                                                }
+                                                                            }
                         ;
-Classheader             : CLASS IDENTIFIER                              {$$ = node;
+ClassHeader             : CLASS IDENTIFIER                              {$$ = node;
                                                                         node++;
                                                                         each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL);
                                                                         push_global(each_symboltable[$$]);}
@@ -357,13 +482,18 @@ Classheader             : CLASS IDENTIFIER                              {$$ = no
                                                                         each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL);
                                                                         push_global(each_symboltable[$$]);}
                         ;
+Super                   : EXTENDS ClassType                             {$$ = node;
+                                                                        node++;
+                                                                        if(classtable.find(nt[$2]->val)!=classtable.end()) {
+                                                                            each_symboltable[$$] = clone(classtable[nt[$2]->val]);
+                                                                            push_global(each_symboltable[$$]);
+                                                                        }
+                                                                        else yyerror("Class not found");}             
+                        ;
 ClassBody               : OCB CCB                   {$$ = node;
                                                     node++;
                                                     each_symboltable[$$] = NULL;}
-                        | OCB ClassBodyDeclarations CCB                     {pop_global(each_symboltable[$2]);
-                                                                            symboltables.push_back(each_symboltable[$2]);
-                                                                            each_symboltable[$2] = NULL;
-                                                                            $$ = $2;} 
+                        | OCB ClassBodyDeclarations CCB      {$$ = $2;}               
                         ;
 ClassBodyDeclarations   : ClassBodyDeclaration      {$$ = $1;}
                         | ClassBodyDeclarations ClassBodyDeclaration    {$$ = $1;}
@@ -481,27 +611,45 @@ ConstructorBody         : OCB CCB                   {$$ = node;
                                                                                     }
                                                                                 }
                         ;
-ExplicitConstructorInvocation   : THIS ONB CNB SEMICOLON
+ExplicitConstructorInvocation   : THIS ONB CNB SEMICOLON            
                                 | THIS ONB ArgumentList CNB SEMICOLON
                                 | SUPER ONB CNB SEMICOLON
                                 | SUPER ONB ArgumentList CNB SEMICOLON
                                 ;
 
-InterfaceDeclaration    : INTERFACE IDENTIFIER InterfaceBody
-                        | Modifiers INTERFACE IDENTIFIER InterfaceBody
+InterfaceDeclaration    : InterfaceHeader InterfaceBody                     {$$ = $1;
+                                                                            if(each_symboltable[$2]!=NULL){
+                                                                                pop_global(each_symboltable[$2]);
+                                                                                symboltables.push_back(each_symboltable[$2]);
+                                                                                if(interfacetable.find(each_symboltable[$1]->info.name)==interfacetable.end()) interfacetable[each_symboltable[$1]->info.name] = each_symboltable[$2];
+                                                                                else yyerror("Interface already exists.");
+                                                                                each_symboltable[$2] = NULL;
+                                                                                }
+                                                                            }                   
                         ;
-InterfaceBody           : OCB CCB
-                        | OCB InterfaceMemberDeclarations CCB           
+InterfaceHeader         : INTERFACE IDENTIFIER                          {$$ = node;
+                                                                        node++;
+                                                                        each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL);
+                                                                        push_global(each_symboltable[$$]);}
+                        | Modifiers INTERFACE IDENTIFIER                {$$ = node;
+                                                                        node++;
+                                                                        each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL);
+                                                                        push_global(each_symboltable[$$]);}
                         ;
-InterfaceMemberDeclarations : InterfaceMemberDeclaration 
-                            | InterfaceMemberDeclarations InterfaceMemberDeclaration
+InterfaceBody           : OCB CCB                                   {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;}
+                        | OCB InterfaceMemberDeclarations CCB               {$$ = $2;}          
+                        ;
+InterfaceMemberDeclarations : InterfaceMemberDeclaration                                {$$ = $1;}
+                            | InterfaceMemberDeclarations InterfaceMemberDeclaration    {$$ = $1;}
                             ;
-InterfaceMemberDeclaration  : ConstantDeclaration
-                            | AbstractMethodDeclaration
+InterfaceMemberDeclaration  : ConstantDeclaration                       {$$ = $1;}
+                            | AbstractMethodDeclaration                 {$$ = $1;}
                             ;
-ConstantDeclaration     : FieldDeclaration
-                        ;
-AbstractMethodDeclaration   : MethodHeader SEMICOLON
+ConstantDeclaration     : FieldDeclaration                              {$$ = $1;}
+                        ;   
+AbstractMethodDeclaration   : MethodHeader SEMICOLON                    {$$ = $1;}
                             ;
 
 ArrayInitializer        : OCB CCB
@@ -1050,4 +1198,4 @@ int main (int argc, char** argv) {
 	return 0;
 }
 
-void yyerror (char *s) {fprintf (stderr, "ERROR: %s \nFor the Token:%s\nIn Line number:%d\n", s, yytext, yylineno);} 
+void yyerror (char *s) {fprintf (stderr, "ERROR: %s \nIn Line number:%d\n", s, yylineno); exit(0);} 
