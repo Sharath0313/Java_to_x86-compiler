@@ -222,6 +222,78 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension
         }
         return k;
     }
+    else if(classtable.find(datatype->val)!=classtable.end())
+    {
+        nlist* k = clone(classtable[datatype->val], false);
+        nlist* temp = k;
+        list* t = name;
+        nlist* prev = NULL;
+        t->val = strcat(t->val,".");
+        while(temp!=NULL)
+        {
+            char *z = strdup(t->val);
+            temp->info.name = strcat(z,temp->info.name);
+            prev = temp;
+            temp = temp->next;
+        }
+        t = t->next;
+
+        while(t!=NULL)
+        {
+            temp = prev;
+            temp->next = clone(classtable[datatype->val], false);
+            temp->next->prev = temp;
+            temp = temp->next;
+            t->val = strcat(t->val,".");
+            while(temp!=NULL)
+            {
+                char *z = strdup(t->val);
+                temp->info.name = strcat(z,temp->info.name);
+                prev = temp;
+                temp = temp->next;
+            }
+            t = t->next;
+        }
+
+        return k;
+
+    }
+    else if(interfacetable.find(datatype->val)!=interfacetable.end())
+    {
+        nlist* k = clone(interfacetable[datatype->val], false);
+        nlist* temp = k;
+        list* t = name;
+        nlist* prev = NULL;
+        t->val = strcat(t->val,".");
+        while(temp!=NULL)
+        {
+            char *z = strdup(t->val);
+            temp->info.name = strcat(z,temp->info.name);
+            prev = temp;
+            temp = temp->next;
+        }
+        t = t->next;
+
+        while(t!=NULL)
+        {
+            temp = prev;
+            temp->next = clone(interfacetable[datatype->val], false);
+            temp->next->prev = temp;
+            temp = temp->next;
+            t->val = strcat(t->val,".");
+            while(temp!=NULL)
+            {
+                char *z = strdup(t->val);
+                temp->info.name = strcat(z,temp->info.name);
+                prev = temp;
+                temp = temp->next;
+            }
+            t = t->next;
+        }
+
+        return k;
+
+    }
     else if(type == 4 || type == 5)
     {
         list* temp = name;
@@ -435,8 +507,6 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                 symboltables.push_back(each_symboltable[$2]);
                                                                                 if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
                                                                                     classtable[each_symboltable[$1]->info.name] = each_symboltable[$2];
-                                                                                    types[each_symboltable[$1]->info.name] = 1;
-                                                                                    // cout << each_symboltable[$1]->info.name << endl;
                                                                                 }
                                                                                 else yyerror("Class already exists.");
                                                                                 each_symboltable[$2] = NULL;
@@ -447,10 +517,8 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                 pop_global(each_symboltable[$2]);
                                                                                 symboltables.push_back(each_symboltable[$2]);
                                                                                 if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
-                                                                                    types[each_symboltable[$1]->info.name] = 1;
-                                                                                    // cout << each_symboltable[$1]->info.name << endl;
                                                                                     classtable[each_symboltable[$1]->info.name] = NULL;
-                                                                                    nlist* c1 = clone(classtable[nt[$2]->val], false);
+                                                                                    nlist* c1 = clone(classtable[nt[$2]->val], true);
                                                                                     mergen(classtable[each_symboltable[$1]->info.name], c1);
                                                                                     nlist* c2 = clone(each_symboltable[$3], false);
                                                                                     mergen(classtable[each_symboltable[$1]->info.name], c2);
@@ -463,8 +531,6 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
                                                                                     classtable[each_symboltable[$1]->info.name] = each_symboltable[$3];
-                                                                                    types[each_symboltable[$1]->info.name] = 1;
-                                                                                    // cout << each_symboltable[$1]->info.name << endl;
                                                                                 }
                                                                                 else yyerror("Class already exists.");
                                                                                 each_symboltable[$2] = NULL;
@@ -495,7 +561,7 @@ Super                   : EXTENDS ClassType                             {$$ = no
 ClassBody               : OCB CCB                   {$$ = node;
                                                     node++;
                                                     each_symboltable[$$] = NULL;}
-                        | OCB ClassBodyDeclarations CCB      {$$ = $2;}               
+                        | OCB ClassBodyDeclarations CCB     {$$ = $2;}             
                         ;
 ClassBodyDeclarations   : ClassBodyDeclaration      {$$ = $1;}
                         | ClassBodyDeclarations ClassBodyDeclaration    {$$ = $1;}
@@ -540,25 +606,25 @@ MethodHeader            : Type MethodDeclarator                     {$$ = node;
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$2];
-                                                                    $$ = $2;}          
+                                                                    if(each_symboltable[$2]) $$ = $2;}          
                         | Modifiers Type MethodDeclarator           {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$3], nt[$1], yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$3];
-                                                                    $$ = $3;}
+                                                                    if(each_symboltable[$3]!=NULL) $$ = $3;}
                         | VOID MethodDeclarator                     {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$2];
-                                                                    $$ = $2;}
+                                                                    if(each_symboltable[$2]) $$ = $2;}
                         | Modifiers VOID MethodDeclarator           {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$3], create_list($2, 0), yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$3];
-                                                                    $$ = $3;}
+                                                                    if(each_symboltable[$3]!=NULL) $$ = $3;}
                         ;
 MethodDeclarator        : SingleName ONB CNB                            {$$ = $1;}
                         | SingleName ONB FormalParameterList CNB        {$$ = $3;
@@ -632,7 +698,6 @@ InterfaceDeclaration    : InterfaceHeader InterfaceBody                     {$$ 
                                                                                 symboltables.push_back(each_symboltable[$2]);
                                                                                 if(interfacetable.find(each_symboltable[$1]->info.name)==interfacetable.end()) {
                                                                                     interfacetable[each_symboltable[$1]->info.name] = each_symboltable[$2];
-                                                                                    types[each_symboltable[$1]->info.name] = 1;
                                                                                 }
                                                                                 else yyerror("Interface already exists.");
                                                                                 each_symboltable[$2] = NULL;
