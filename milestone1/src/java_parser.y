@@ -2683,7 +2683,7 @@ int main (int argc, char** argv) {
 
     if(argc!=3)
     {
-        cout << "The syntax for execution is: program input_filename" << endl;
+        cout << "The syntax for execution is: program input_filename output_filename" << endl;
         return 0;
     }
 
