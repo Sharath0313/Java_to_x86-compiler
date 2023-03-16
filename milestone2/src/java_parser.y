@@ -81,11 +81,13 @@ nlist* find_in_list(nlist*,char* id);
 map<int, list*> nt;
 map<int, list*> args;
 map<int, nlist*> each_symboltable;
-map<int, int> parents;
+map<string, string> parents;
 vector<nlist*> symboltables;
 map<string, nlist*> classtable;
 map<string, nlist*> interfacetable;
 nlist* Global = create_nlist("System.out.println", "void", -1, 3, 0, create_list("all",0), true);
+nlist* pglobal = create_nlist("", "none", -1, -1, -1, NULL, false);
+nlist* pglobal_tail = pglobal;
 nlist* global_tail = Global;
 map<string, int> types;
 
@@ -96,6 +98,7 @@ void out(nlist* t){
         cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << endl;
         temp = temp->next;
     }
+    cout << endl;
 
     return ;
 
@@ -145,6 +148,19 @@ void push_global(nlist* &nl){
 
 }
 
+void push_pglobal(nlist* &nl){
+    
+    if(nl == NULL)return;
+
+    pglobal_tail->next = nl;
+    nl->prev = pglobal_tail;
+
+    while(pglobal_tail->next != NULL)pglobal_tail = pglobal_tail->next;
+
+    return;
+
+}
+
 void pop_global(nlist* &nl){
 
     if(nl==NULL) return;
@@ -152,6 +168,18 @@ void pop_global(nlist* &nl){
     global_tail = nl->prev;
     nl->prev = NULL;
     global_tail->next = NULL;
+
+    return ;
+
+}
+
+void pop_pglobal(nlist* &nl){
+
+    if(nl==NULL) return;
+
+    pglobal_tail = nl->prev;
+    nl->prev = NULL;
+    pglobal_tail->next = NULL;
 
     return ;
 
@@ -325,6 +353,45 @@ nlist* find_in_list(nlist* tail, char* id){
         t = t->prev;
     }
     return NULL;
+}
+
+void mergep(nlist* &n1, nlist* n2){
+
+    if(n2==NULL)
+    return ;
+    if(n1==NULL)
+    {
+        n1 = n2;
+        return ;
+    }
+
+    nlist* one = n1;
+    nlist* two = n2;
+    nlist* one_tail = one;
+
+    while(one_tail->next != NULL)one_tail = one_tail->next;
+
+    while(two!=NULL)
+    {
+        nlist* temp = one;
+        bool isthere = false;
+        while(temp!=NULL)
+        {
+            if(!strcmp(temp->info.name,two->info.name))isthere = true;
+            temp = temp->next;
+        }
+        if(!isthere)
+        {
+            one_tail->next = create_nlist(two->info.name, two->info.datatype, two->info.lineno, two->info.type, two->info.dimension, two->info.args, two->info.mod);
+            one_tail->next->prev = one_tail;
+            one_tail = one_tail->next;
+        }
+
+        two = two->next;
+    }
+
+    return ;
+
 }
 
 %}
@@ -513,37 +580,26 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                 }
                                                                             } 
                         | ClassHeader Super ClassBody                       {$$ = $1;
-                                                                            if(each_symboltable[$2]!=NULL){
-                                                                                pop_global(each_symboltable[$2]);
-                                                                                symboltables.push_back(each_symboltable[$2]);
-                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
-                                                                                    classtable[each_symboltable[$1]->info.name] = NULL;
-                                                                                    nlist* c1 = clone(classtable[nt[$2]->val], false);
-                                                                                    mergen(classtable[each_symboltable[$1]->info.name], c1);
-                                                                                    nlist* c2 = clone(each_symboltable[$3], false);
-                                                                                    mergen(classtable[each_symboltable[$1]->info.name], c2);
-                                                                                }
-                                                                                else yyerror("Class already exists.");
-                                                                                each_symboltable[$2] = NULL;
-                                                                                }
-                                                                            else{
-                                                                                pop_global(each_symboltable[$3]);
-                                                                                symboltables.push_back(each_symboltable[$3]);
-                                                                                if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
-                                                                                    classtable[each_symboltable[$1]->info.name] = each_symboltable[$3];
-                                                                                }
-                                                                                else yyerror("Class already exists.");
-                                                                                each_symboltable[$2] = NULL;
-                                                                                }
+                                                                            pop_pglobal(each_symboltable[$2]);
+                                                                            pop_global(each_symboltable[$3]);
+                                                                            if(classtable.find(each_symboltable[$1]->info.name)==classtable.end()) {
+                                                                                nlist* c1 = clone(classtable[nt[$2]->val], false);
+                                                                                nlist* c2 = clone(each_symboltable[$3], false);
+                                                                                mergep(c2,c1);
+                                                                                classtable[each_symboltable[$1]->info.name] = c2;
                                                                             }
+                                                                            else yyerror("Class already exists.");
+                                                                            mergep(each_symboltable[$3],each_symboltable[$2]);
+                                                                            symboltables.push_back(each_symboltable[$3]);
+                                                                            parents[each_symboltable[$1]->info.name] = nt[$2]->val;
+                                                                            each_symboltable[$2] = NULL;
+                                                                            each_symboltable[$3] = NULL;}
                         ;
-ClassHeader             : CLASS IDENTIFIER                              {
-                                                                        $$ = node;
+ClassHeader             : CLASS IDENTIFIER                              {$$ = node;
                                                                         node++;
                                                                         each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL, true);
                                                                         push_global(each_symboltable[$$]);}
-                        | Modifiers CLASS IDENTIFIER                    {
-                                                                        $$ = node;
+                        | Modifiers CLASS IDENTIFIER                    {$$ = node;
                                                                         node++;
                                                                         each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL, $1);
                                                                         push_global(each_symboltable[$$]);}
@@ -554,7 +610,7 @@ Super                   : EXTENDS ClassType                             {$$ = no
                                                                         if(classtable.find(nt[$2]->val)!=classtable.end()) {
                                                                             nlist* c3 = clone(classtable[nt[$2]->val], true);
                                                                             each_symboltable[$$] = c3;
-                                                                            push_global(each_symboltable[$$]);
+                                                                            push_pglobal(each_symboltable[$$]);
                                                                         }
                                                                         else yyerror("Class not found");}             
                         ;
