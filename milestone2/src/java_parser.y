@@ -7,6 +7,8 @@
 #include <cstdio>
 #include <map>
 #include <cstring>
+#include <set>
+#include <sstream>
 using namespace std;
 
 void yyerror (char *s);
@@ -15,7 +17,9 @@ extern int yylineno;
 extern FILE *yyin;
 int yylex();
 ofstream outfile;
-int node = 0;
+ofstream fout;
+int node = 0,label = 0,variable = 0;
+set<string> types1,types2,types3;
 
 struct list{
     char* val;
@@ -88,6 +92,9 @@ map<string, nlist*> interfacetable;
 nlist* Global = create_nlist("System.out.println", "void", -1, 3, 0, create_list("all",0), true);
 nlist* global_tail = Global;
 map<string, int> types;
+map<int, string> codes;
+map<int, sstream> thecode;
+map<int, string> exptypes;
 
 void out(nlist* t){
     
@@ -327,6 +334,37 @@ nlist* find_in_list(nlist* tail, char* id){
     return NULL;
 }
 
+string gen_var() {return "t"+to_string(variable++) ;}
+string gen_label() {return "L"+to_string(label++) ;}
+
+void gen_exp_types (int a, int b, int r, char *op){
+    string v= gen_var(),extra;
+    if(!strcmp(op,"concatenate")) { fout << "\t" << v << ":= " << codes[a] << " "<<op<<" "<< codes[b]<<endl; exptypes[r] = "String";}
+    else if(types2.find(exptypes[a])!=types2.end()){
+        if(types2.find(exptypes[b])!=types2.end()) {
+            fout << "\t" << v << ":= " << codes[a] << " "<<op<<"int "<< codes[b]<<endl;
+            exptypes[r] = "int";
+        }
+        else { extra = gen_var();
+            fout << "\t" << extra << " := cast_to_float "<< codes[a] <<endl;
+            fout << "\t" << v << ":= " << extra << " "<<op<<"float "<< codes[b]<<endl;
+            exptypes[r] = "float";
+        }
+    }
+    else{
+        if(types2.find(exptypes[b])!=types2.end()) { extra = gen_var();
+            fout << "\t" << extra << " := cast_to_float "<< codes[b] <<endl;
+            fout << "\t" << v << ":= " << extra << " "<<op<<"float "<< codes[a]<<endl;
+            exptypes[r] = "float";
+        }
+        else { extra = gen_var();
+            fout << "\t" << v << ":= " << codes[a] << " "<<op<<"float "<< codes[b]<<endl;
+            exptypes[r] = "float";
+        }
+    }
+    codes[r] = v;
+}
+
 %}
 
 %union{
@@ -427,25 +465,39 @@ TypeDeclaration         : ClassDeclaration                          {$$ = $1;}
 
 Literal                 : INT_LITERAL               {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;}
+                                                    each_symboltable[$$] = NULL;
+                                                    codes[$$] = $1;
+                                                    exptypes[$$] = "int";}
                         | FLOAT_LITERAL             {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;}
+                                                    each_symboltable[$$] = NULL;
+                                                    codes[$$] = $1;
+                                                    exptypes[$$] = "float";}
                         | BOOL_LITERAL              {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;}
+                                                    each_symboltable[$$] = NULL;
+                                                    codes[$$] = $1;
+                                                    exptypes[$$] = "boolean";}
                         | CHAR_LITERAL              {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;}
+                                                    each_symboltable[$$] = NULL;
+                                                    codes[$$] = $1;
+                                                    exptypes[$$] = "char";}
                         | STRING_LITERAL            {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;}
+                                                    each_symboltable[$$] = NULL;
+                                                    codes[$$] = $1;
+                                                    exptypes[$$] = "String";}
                         | NULL_LITERAL              {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;}
+                                                    each_symboltable[$$] = NULL;
+                                                    codes[$$] = $1;
+                                                    exptypes[$$] = "";}
                         | TEXT_BLOCK                {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;}
+                                                    each_symboltable[$$] = NULL;
+                                                    codes[$$] = $1;
+                                                    exptypes[$$] = "String";}
                         ;
 
 Name                    : SingleName                    {$$ = $1;}
@@ -453,11 +505,13 @@ Name                    : SingleName                    {$$ = $1;}
                         ;   
 SingleName              : IDENTIFIER                    {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0);}
+                                                        nt[$$] = create_list($1, 0);
+                                                        codes[$$]= $1;}
                         ;
 MultipleName            : Name DOT IDENTIFIER           {strcat(nt[$1]->val,$2);
                                                         strcat(nt[$1]->val,$3);
-                                                        $$ = $1;} 
+                                                        $$ = $1;
+                                                        codes[$$] = nt[$1]->val;} 
                         ;
 Modifiers               : STATIC Modifier           {$$ = $2;}
                         | Modifier STATIC           {$$ = $1;}
@@ -472,23 +526,28 @@ Type                    : PrimitiveType                 {$$ = $1;}
 PrimitiveType           : NumericType                   {$$ = $1;}
                         | BOOLEAN                       {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0);}
+                                                        nt[$$] = create_list($1, 0); codes[$$] = $1; 
+                                                        exptypes[$$] = $1;}
                         | STRINGTYPE                    {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0);}
+                                                        nt[$$] = create_list($1, 0); codes[$$] = $1;
+                                                        exptypes[$$] = $1;}
                         ;
 NumericType             : INTEGRALTYPE                  {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0);}
+                                                        nt[$$] = create_list($1, 0); codes[$$] = $1;
+                                                        exptypes[$$] = $1;}
                         | FLOATINGPOINTTYPE             {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0);}
+                                                        nt[$$] = create_list($1, 0); codes[$$] = $1;
+                                                        exptypes[$$] = $1;}
                         
                         ;
 ReferenceType           : ClassOrInterfaceType          {$$ = $1;} 
                         | ArrayType                     {$$ = $1;}
                         ;
-ClassOrInterfaceType    : Name                          {$$ = $1;}                
+ClassOrInterfaceType    : Name                          {$$ = $1;
+                                                        exptypes[$$] = nt[$1]->val;}                
                         ;
 ClassType               : ClassOrInterfaceType          {$$ = $1;}
                         ;
@@ -756,7 +815,7 @@ BlockStatements         : BlockStatement                                    {$$ 
 BlockStatement          : LocalVariableDeclarationStatement                 {$$ = $1;}
                         | Statement                                         {$$ = $1;}               
                         ;
-LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON    {$$ = $1;}
+LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON    {$$ = $1; }
                                     ;
 LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
                                                                     node++;
@@ -1122,122 +1181,378 @@ MethodInvocation        : Name ONB CNB                              {$$ = node;
 ArrayAccess             : Name OSB Expression CSB
                         | PrimaryNoNewArray OSB Expression CSB
                         ;
-PostfixExpression       : Primary   
-                        | Name
-                        | PostIncrementExpression
-                        | PostDecrementExpression
+PostfixExpression       : Primary                                   {$$=$1;}
+                        | Name                                      {$$=$1;
+                                                                     nlist *q = find_in_list(global_tail,nt[$1]->val);
+                                                                    if(!q) yyerror("variable not declared in this scope");
+                                                                    exptypes[$$] = q->info.datatype;
+                                                                    }
+                        | PostIncrementExpression                   {$$=$1;}
+                        | PostDecrementExpression                   {$$=$1;}
                         ;
 PostIncrementExpression : PostfixExpression INC                     {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1]) != types1.end()){
+                                                                    string v= gen_var();
+                                                                    fout<<"\t"<<v<<":="<<codes[$1]<<endl;
+                                                                    fout<<"\t"<<codes[$1]<<":= "<<codes[$1]<<" + 1"<<endl;
+                                                                        codes[$$] = v;
+                                                                        exptypes[$$] = exptypes[$1];
+                                                                    }
+                                                                    else{
+                                                                        yyerror("incompatible operand types for ++");
+                                                                    }
+                                                                    } 
                         ;   
 PostDecrementExpression : PostfixExpression DEC                     {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1]) != types1.end()){
+                                                                    string v= gen_var();
+                                                                    fout<<"\t"<<v<<":="<<codes[$1]<<endl;
+                                                                    fout<<"\t"<<codes[$1]<<":= "<<codes[$1]<<" - 1"<<endl;
+                                                                        codes[$$] = v;
+                                                                        exptypes[$$] = exptypes[$1];
+                                                                        }
+                                                                        else{
+                                                                        yyerror("incompatible operand types for --");
+                                                                    }
+                                                                    } 
                         ;
-UnaryExpression         : PreIncrementExpression
-                        | PreDecrementExpression
-                        | PLUS UnaryExpression
-                        | MINUS UnaryExpression
-                        | UnaryExpressionNotPlusMinus
+UnaryExpression         : PreIncrementExpression                    {$$ = $1;}
+                        | PreDecrementExpression                    {$$ = $1;}
+                        | PLUS UnaryExpression                      {$$ = node; node++; 
+                                                                        if(types1.find(exptypes[$2]) != types1.end())
+                                                                        {
+                                                                            if(exptypes[$2]=="long"||exptypes[$2]=="char") exptypes[$$] = "int";
+                                                                            else exptypes[$$] = exptypes[$2];
+                                                                        }
+                                                                        else yyerror("incompatible operand type for unary +");
+                                                                    }
+                        | MINUS UnaryExpression                     {   $$ = node; node++;
+                                                                        if(types1.find(exptypes[$2]) != types1.end()){
+                                                                        string v= gen_var();
+                                                                        fout << "\t"<<v<<":= "<<" -"<<codes[$2]<<endl;
+                                                                        codes[$$] = v;
+                                                                        exptypes[$$] = exptypes[$2];
+                                                                        if(exptypes[$2]=="long"||exptypes[$2]=="char") exptypes[$$] = "int";
+                                                                        }
+                                                                        else yyerror("incompatible operand type for unary -");
+                                                                    }
+                        | UnaryExpressionNotPlusMinus               {$$ = $1;}
                         ;
 PreIncrementExpression  : INC UnaryExpression                       {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$2]) != types1.end()){
+                                                                        fout << "\t"<<codes[$2]<<":= "<<codes[$2]<<" + 1"<<endl;
+                                                                        codes[$$] = codes[$2];
+                                                                        exptypes[$$] = exptypes[$2];
+                                                                    } 
+                                                                    else yyerror("incompatible operand type for ++");
+                                                                    } 
                         ;
 PreDecrementExpression  : DEC UnaryExpression                       {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$2]) != types1.end()){
+                                                                        fout << "\t"<<codes[$2]<<":= "<<codes[$2]<<" - 1"<<endl;
+                                                                        codes[$$] = codes[$2];
+                                                                        exptypes[$$] = exptypes[$2];
+                                                                    }
+                                                                    else yyerror("incompatible operand type for --");
+                                                                    } 
                         ;
-UnaryExpressionNotPlusMinus : PostfixExpression
-                            | NEG UnaryExpression
-                            | NOT UnaryExpression
-                            | CastExpression 
+UnaryExpressionNotPlusMinus : PostfixExpression         {$$ = $1;}
+                            | NEG UnaryExpression       {   $$ = node; node++;
+                                                            if(types2.find(exptypes[$2]) == types2.end()) yyerror("incompatible operand type");
+                                                                        string v= gen_var();
+                                                                        fout << "\t"<<v<<":= "<<"~ "<<codes[$2]<<endl;
+                                                                        codes[$$] = v;
+                                                                        exptypes[$$] = exptypes[$2];
+                                                                        }
+                            | NOT UnaryExpression       {   $$ = node; node++;
+                                                            if(exptypes[$2]!= "boolean") yyerror("incompatible operand type");
+                                                                        string v= gen_var();
+                                                                        fout << "\t"<<v<<":= "<<"! "<<codes[$2]<<endl;
+                                                                        codes[$$] = v;
+                                                                        exptypes[$$] = exptypes[$2];
+                                                                        }
+                            | CastExpression            {$$ = $1;}
                             ;
-CastExpression          : ONB PrimitiveType CNB UnaryExpression
-                        | ONB PrimitiveType Dims CNB UnaryExpression
+CastExpression          : ONB PrimitiveType CNB UnaryExpression         {   $$ = node; node++; //cout<<"cout"<<exptypes[$2]<<" 4"<<exptypes[$4];
+                                                                        if(types1.find(exptypes[$2]) != types1.end()){
+                                                                            if(types1.find(exptypes[$4]) != types1.end()){
+                                                                        string v= gen_var();
+                                                                        fout << "\t"<<v<<":= "<<"cast_to_"<<codes[$2]<<" "<<codes[$4]<<endl;
+                                                                        codes[$$] = v;
+                                                                        exptypes[$$] = exptypes[$2];
+                                                                            }else yyerror("conversion not possible");
+                                                                            }
+                                                                            else yyerror("conversion not possible");
+                                                                        }
+                        | ONB PrimitiveType Dims CNB UnaryExpression    
                         | ONB Expression CNB UnaryExpressionNotPlusMinus
                         | ONB Name Dims CNB UnaryExpressionNotPlusMinus
                         ;
-MultiplicativeExpression    : UnaryExpression
-                            | MultiplicativeExpression STAR UnaryExpression
-                            | MultiplicativeExpression DIV UnaryExpression
-                            | MultiplicativeExpression MOD UnaryExpression
+MultiplicativeExpression    : UnaryExpression                                   {$$ = $1;}
+                            | MultiplicativeExpression STAR UnaryExpression     {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
+                                                                        yyerror("incompatible operand types for *");
+                                                                    gen_exp_types($1,$3,$$,$2);
+                                                                    } 
+                            | MultiplicativeExpression DIV UnaryExpression      {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
+                                                                        yyerror("incompatible operand types for /");
+                                                                    gen_exp_types($1,$3,$$,$2);
+                                                                    } 
+                            | MultiplicativeExpression MOD UnaryExpression      {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
+                                                                        yyerror("incompatible operand types for %");
+                                                                    gen_exp_types($1,$3,$$,$2);
+                                                                    } 
                             ;
-AdditiveExpression      : MultiplicativeExpression
-                        | AdditiveExpression PLUS MultiplicativeExpression   
-                        | AdditiveExpression MINUS MultiplicativeExpression
+AdditiveExpression      : MultiplicativeExpression                          {$$ = $1;}
+                        | AdditiveExpression PLUS MultiplicativeExpression   {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end()){
+                                                                        if(exptypes[$1]== "String" && exptypes[$3]== "String") gen_exp_types($1,$3,$$,"concatenate");
+                                                                        else yyerror("incompatible operand types for +");}
+                                                                    else gen_exp_types($1,$3,$$,$2);
+                                                                    } 
+                        | AdditiveExpression MINUS MultiplicativeExpression     {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
+                                                                        yyerror("incompatible operand types for -");
+                                                                    gen_exp_types($1,$3,$$,$2);
+                                                                    } 
                         ;
-ShiftExpression         : AdditiveExpression
-                        | ShiftExpression SHIFT AdditiveExpression
+ShiftExpression         : AdditiveExpression                            {$$ = $1;}
+                        | ShiftExpression SHIFT AdditiveExpression      {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end())
+                                                                        yyerror("incompatible operand types for SHIFT");
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":="  << codes[$1] <<" "<<$2<<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    exptypes[$$] = "int";
+                                                                    } 
                         ;
-RelationalExpression    : ShiftExpression
-                        | RelationalExpression RELGL ShiftExpression
-                        | RelationalExpression INSTANCEOF ReferenceType
+RelationalExpression    : ShiftExpression                               {$$=$1;}
+                        | RelationalExpression RELGL ShiftExpression    {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
+                                                                        yyerror("incompatible operand types for relational operators");
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    exptypes[$$] = "boolean";
+                                                                    } 
+                        | RelationalExpression INSTANCEOF ReferenceType   {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1]) != types1.end() || types1.find(exptypes[$3]) != types1.end()) 
+                                                                        yyerror("incompatible operand types for instanceof");
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":=" << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    exptypes[$$] = "boolean";
+                                                                    } 
                         ;
-EqualityExpression      : RelationalExpression
-                        | EqualityExpression RELEQ RelationalExpression
-                        | EqualityExpression RELNOTEQ RelationalExpression
+EqualityExpression      : RelationalExpression                              {$$ = $1;}
+                        | EqualityExpression RELEQ RelationalExpression     {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end()){
+                                                                        if(exptypes[$1]== "String" && exptypes[$3]== "String");
+                                                                        else yyerror("incompatible operand types for ==");}
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":= " << codes[$1] << " = " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    exptypes[$$] = "boolean";
+                                                                    } 
+                        | EqualityExpression RELNOTEQ RelationalExpression  {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end()){
+                                                                        if(exptypes[$1]== "String" && exptypes[$3]== "String");
+                                                                        else yyerror("incompatible operand types for !=");}
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    exptypes[$$] = "boolean";
+                                                                    } 
                         ;
-AndExpression           : EqualityExpression
-                        | AndExpression AND EqualityExpression
+AndExpression           : EqualityExpression                        {$$ = $1;}
+                        | AndExpression AND EqualityExpression      {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    exptypes[$$] = "int";
+                                                                    if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
+                                                                        if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
+                                                                        else yyerror("incompatible operand types for &");}
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    } 
                         ;
-ExclusiveOrExpression   : AndExpression
-                        | ExclusiveOrExpression UP AndExpression
+ExclusiveOrExpression   : AndExpression                             {$$ = $1;}
+                        | ExclusiveOrExpression UP AndExpression    {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    exptypes[$$] = "int";
+                                                                    if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
+                                                                        if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
+                                                                        else yyerror("incompatible operand types for ^");}
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    } 
                         ;
-InclusiveOrExpression   : ExclusiveOrExpression
-                        | InclusiveOrExpression OR ExclusiveOrExpression
+InclusiveOrExpression   : ExclusiveOrExpression                     {$$ =$1;}
+                        | InclusiveOrExpression OR ExclusiveOrExpression    {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    exptypes[$$] = "int";
+                                                                    if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
+                                                                        if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
+                                                                        else yyerror("incompatible operand types for |");}
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    } 
                         ;
-ConditionalAndExpression    : InclusiveOrExpression
-                            | ConditionalAndExpression RELAND InclusiveOrExpression
+ConditionalAndExpression    : InclusiveOrExpression                 {$$ = $1;}
+                            | ConditionalAndExpression RELAND InclusiveOrExpression {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(exptypes[$1]!= "boolean" || exptypes[$3]!= "boolean") 
+                                                                        yyerror("incompatible operand types for &&");
+                                                                    exptypes[$$] = "boolean";
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    } 
                             ;
-ConditionalOrExpression : ConditionalAndExpression
-                        | ConditionalOrExpression RELOR ConditionalAndExpression
+ConditionalOrExpression : ConditionalAndExpression                                          {$$ = $1;}
+                        | ConditionalOrExpression RELOR ConditionalAndExpression            {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL; 
+                                                                    if(exptypes[$1]!= "boolean" || exptypes[$3]!= "boolean")
+                                                                        yyerror("incompatible operand types for ||");
+                                                                    exptypes[$$] = "boolean";
+                                                                    string v= gen_var();
+                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    codes[$$] = v;
+                                                                    } 
                         ;
-ConditionalExpression   : ConditionalOrExpression
-                        | ConditionalOrExpression QM Expression COLON ConditionalExpression
+ConditionalExpression   : ConditionalOrExpression                                           {$$ = $1;}
+                        | ConditionalOrExpression QM Expression COLON ConditionalExpression {   string t = gen_label(), f= gen_label(), v= gen_var();
+                                                                                                fout<<"\t"<<"if "<<codes[$1]<<" goto "<<t<<endl;
+                                                                                                fout<<"\t"<<v<<":= "<<codes[$5]<<endl;
+                                                                                                fout<<"\t"<<"goto "<<f<<endl;
+                                                                                                fout<<t<<":\n\t"<<v<<":= "<<codes[$3]<<endl;
+                                                                                                fout<<f<<":\n";
+                                                                                                $$ = node; node++;
+                                                                                                codes[$$] = v;
+                                                                                                exptypes[$$] = "int";
+                                                                                            }
                         ;
 AssignmentExpression    : ConditionalExpression         {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];
+                                                                    } 
                         | Assignment                    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];} 
                         ;
 Assignment              : LeftHandSide Assignment_Operators AssignmentExpression    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(types2.find(exptypes[$1])!=types2.end() && types2.find(exptypes[$3])!=types2.end()) 
+                                                                    {
+                                                                         if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
+                                                                         else if(codes[$2] != "&=") fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"int "<<codes[$3]<<endl;
+                                                                         else fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<" "<<codes[$3]<<endl;
+                                                                    }
+                                                                    else if(types3.find(exptypes[$1])!=types3.end() && types3.find(exptypes[$3])!=types3.end()) 
+                                                                    {
+                                                                        if(codes[$2] == "&=") yyerror("incompatible operand types");
+                                                                        else if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
+                                                                         else fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"float "<<codes[$3]<<endl;
+                                                                    }
+                                                                    else if(exptypes[$1]==exptypes[$3]){ 
+                                                                        if(codes[$2] == "&=" && exptypes[$1]=="boolean") fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<" "<<codes[$3]<<endl;
+                                                                        else if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
+                                                                         else yyerror("incompatible types for assignment");
+                                                                    }
+                                                                    else if(types3.find(exptypes[$1])!=types3.end() && types2.find(exptypes[$3])!=types2.end()){
+                                                                        if(codes[$2]== "=") fout << "\t" << codes[$1] << " := cast_to_float " << codes[$3]<<endl;
+                                                                        else {
+                                                                            if(codes[$2] == "&=") yyerror("incompatible operand types");
+                                                                            string v= gen_var();
+                                                                            fout << "\t" << v << " := cast_to_float " << codes[$3]<<endl;
+                                                                            fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"float "<<v<<endl;
+                                                                        }
+                                                                    }
+                                                                    else yyerror("incompatible types for assignment (can also be lossy decomposition)");
+                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];
+                                                                    } 
                         ;
-Assignment_Operators    : ASSIGNMENT_OPERATOR
-                        | EQ
+Assignment_Operators    : ASSIGNMENT_OPERATOR                       {$$ = node; node++;
+                                                                    codes[$$] = $1;
+                                                                    }
+                        | EQ                                       {$$ = node; node++;
+                                                                    codes[$$] = $1;
+                                                                    }
                         ;
-LeftHandSide            : Name
-                        | FieldAccess
+LeftHandSide            : Name                                     {$$ = $1; // cout<<"variabel="<<nt[$1]->val<<endl;
+                                                                    nlist *q = find_in_list(global_tail,nt[$1]->val);
+                                                                    if(!q) yyerror("variable not declared in this scope");
+                                                                    exptypes[$$] = q->info.datatype;
+                                                                    }
+                        | FieldAccess                              
                         | ArrayAccess
                         ;
 Expression              : AssignmentExpression                      {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1];} 
                         ;
 ConstantExpression      : Expression                                {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1];} 
                         ;
 
 %%                    
 
 
 int main (int argc, char** argv) {
-
-    types["int"] = 1;
-    types["long"] = 1;
-    types["char"] = 1;
-    types["float"] = 1;
-    types["double"] = 1;
+    fout.open("output.3ac");
+    types["int"] = 1;   types1.insert("int");           types2.insert("int");
+    types["long"] = 1;  types1.insert("long");          types2.insert("long"); 
+    types["char"] = 1;  types1.insert("char");          types2.insert("char");
+    types["float"] = 1;     types1.insert("float");     types3.insert("float");
+    types["double"] = 1;    types1.insert("double");    types3.insert("double");
     types["String"] = 1;
     types["class"] = 1;
     types["interface"] = 1;
     types["void"] = 1;
+    types["boolean"] = 1;
 
     if(argc!=3)
     {
@@ -1247,6 +1562,7 @@ int main (int argc, char** argv) {
 
     FILE *infile = fopen(argv[1], "r");
     outfile.open(argv[2], ios::trunc);
+    
     if (!infile) {
         cout << "I can't open the file!" << endl;
         return -1;
@@ -1281,8 +1597,10 @@ int main (int argc, char** argv) {
         }
         outfile << endl; 
     }
-
+    //fout << "System.out.println:\n\tprint()"
+    outfile.close();
+    fout.close();
 	return 0;
 }
 
-void yyerror (char *s) {fprintf (stderr, "ERROR: %s \nIn Line number:%d\n", s, yylineno); exit(0);} 
+void yyerror (char *s) {fprintf (stderr, "ERROR: %s \nIn Line number:%d\n", s, yylineno); exit(0);}
