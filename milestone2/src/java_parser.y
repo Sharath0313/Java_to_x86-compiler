@@ -1185,7 +1185,7 @@ ArrayAccess             : Name OSB Expression CSB                   {
                                                                         if(types2.find(exptypes[$3]) == types2.end()) yyerror("index is not of type int");
                                                                         codes[$$] = codes[$1];
                                                                     }
-                        | PrimaryNoNewArray OSB Expression CSB
+                        | PrimaryNoNewArray OSB Expression CSB      
                         ;
 PostfixExpression       : Primary                                   {$$=$1;}
                         | Name                                      {$$=$1;
