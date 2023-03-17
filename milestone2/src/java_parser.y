@@ -93,7 +93,7 @@ nlist* Global = create_nlist("System.out.println", "void", -1, 3, 0, create_list
 nlist* global_tail = Global;
 map<string, int> types;
 map<int, string> codes;
-map<int, sstream> thecode;
+map<int, sstring> thecode;
 map<int, string> exptypes;
 
 void out(nlist* t){
@@ -520,6 +520,7 @@ Modifiers               : STATIC Modifier           {$$ = $2;}
                         ;
 Modifier                : PUBLIC                    {$$ = true;}
                         | PRIVATE                   {$$ = false;}
+                        ;
 Type                    : PrimitiveType                 {$$ = $1;}
                         | ReferenceType                 {$$ = $1;}
                         ;
@@ -1178,7 +1179,12 @@ MethodInvocation        : Name ONB CNB                              {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;} 
                         ;
-ArrayAccess             : Name OSB Expression CSB
+ArrayAccess             : Name OSB Expression CSB                   {
+                                                                        $$=node; node++;
+                                                                        q = find_in_list(global_tail,codes[$1]);
+                                                                        if(types2.find(exptypes[$3]) == types2.end()) yyerror("index is not of type int");
+                                                                        codes[$$] = codes[$1];
+                                                                    }
                         | PrimaryNoNewArray OSB Expression CSB
                         ;
 PostfixExpression       : Primary                                   {$$=$1;}
