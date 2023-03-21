@@ -31,7 +31,7 @@ struct list{
 
 struct symrec{
     char *name,*datatype;
-    int lineno,type,dimension;       // 1->localvar 2->class 3->method 4->import 5->package
+    int lineno,type,dimension;       // 1->localvar 2->class 3->method 4->import 5->package 6->Constructor
     list* args;
     bool mod;
 } typedef symrec;
@@ -81,7 +81,7 @@ list* create_list(char* val, int dim){
 
 }
 
-nlist* find_in_list(nlist*,char* id);
+nlist* find_in_list(nlist* tail,char* id);
 map<int, list*> nt;
 map<int, list*> args;
 map<int, nlist*> each_symboltable;
@@ -94,18 +94,31 @@ nlist* pglobal = create_nlist("", "none", -1, -1, -1, NULL, false);
 nlist* pglobal_tail = pglobal;
 nlist* global_tail = Global;
 map<string, int> types;
-map<int, string> codes;
-map<int, sstream> thecode;
-map<int, string> exptypes;
+map<int, stringstream> thecode;
+map<int, symrec> each_symrec;
+nlist* Construct = NULL;
 
 void out(nlist* t){
     
     nlist* temp = t;
-    while(temp!=NULL){
-        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << endl;
+    while(temp!=NULL)
+    {
+        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << ", ARGS: ";
+        list* a = temp->info.args;
+        if(a!=NULL)
+        {
+            cout << a->val << "(" << a->dim << ")";
+            a = a->next;
+            while(a!=NULL)
+            {
+                cout << ", " << a->val << "(" << a->dim << ")";
+                a = a->next;
+            }
+        }
+        cout << endl;
         temp = temp->next;
     }
-    cout << endl;
+    cout << endl; 
 
     return ;
 
@@ -139,6 +152,29 @@ nlist* clone(nlist* l, bool super){
     }
     
     return k->next;
+
+}
+
+nlist* new_clone(string k){
+
+    if(classtable.find(k)==classtable.end()) 
+    {
+        yyerror("Class not found.");
+        return NULL;
+    }
+
+    nlist* res = clone(classtable[k], false);
+    nlist* temp = res;
+
+    while(temp!=NULL)
+    {
+        string p = "new " + k + "()";
+        char* z = const_cast<char*>(p.c_str());
+        temp->info.name = strdup(strcat(z,temp->info.name));
+        temp = temp->next; 
+    }
+
+    return res;
 
 }
 
@@ -356,41 +392,14 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension
 nlist* find_in_list(nlist* tail, char* id){
     nlist* t = tail;
     while(t){
-        if(!strcmp(t->info.name, id)) return t;
+        if(!strcmp(t->info.name, id))
+        {
+            nlist* res = create_nlist(t->info.name, t->info.datatype, t->info.lineno, t->info.type, t->info.dimension, t->info.args, t->info.mod);
+            return res;
+        }
         t = t->prev;
     }
     return NULL;
-}
-
-string gen_var() {return "t"+to_string(variable++) ;}
-string gen_label() {return "L"+to_string(label++) ;}
-
-void gen_exp_types (int a, int b, int r, char *op){
-    string v= gen_var(),extra;
-    if(!strcmp(op,"concatenate")) { fout << "\t" << v << ":= " << codes[a] << " "<<op<<" "<< codes[b]<<endl; exptypes[r] = "String";}
-    else if(types2.find(exptypes[a])!=types2.end()){
-        if(types2.find(exptypes[b])!=types2.end()) {
-            fout << "\t" << v << ":= " << codes[a] << " "<<op<<"int "<< codes[b]<<endl;
-            exptypes[r] = "int";
-        }
-        else { extra = gen_var();
-            fout << "\t" << extra << " := cast_to_float "<< codes[a] <<endl;
-            fout << "\t" << v << ":= " << extra << " "<<op<<"float "<< codes[b]<<endl;
-            exptypes[r] = "float";
-        }
-    }
-    else{
-        if(types2.find(exptypes[b])!=types2.end()) { extra = gen_var();
-            fout << "\t" << extra << " := cast_to_float "<< codes[b] <<endl;
-            fout << "\t" << v << ":= " << extra << " "<<op<<"float "<< codes[a]<<endl;
-            exptypes[r] = "float";
-        }
-        else { extra = gen_var();
-            fout << "\t" << v << ":= " << codes[a] << " "<<op<<"float "<< codes[b]<<endl;
-            exptypes[r] = "float";
-        }
-    }
-    codes[r] = v;
 }
 
 void mergep(nlist* &n1, nlist* n2){
@@ -433,6 +442,59 @@ void mergep(nlist* &n1, nlist* n2){
 
 }
 
+void create_cons(char* name, char* datatype, int lineno, int type, int dimension, list* args, bool mod){
+
+    nlist* temp = global_tail;
+    while(temp!=NULL)
+    {
+        if(!strcmp(temp->info.name, name))
+        break;
+
+        temp = temp->prev;
+    }
+
+    if(temp==NULL)
+    {
+        yyerror("Invalid Constructor");
+        return ;
+    }
+
+    Construct = create_nlist(name, datatype, lineno, type, dimension, args, mod);
+
+    return;
+
+}
+
+bool cmplist(list* a, list* b){
+
+    if(a==NULL && b==NULL)
+    return true;
+    else if(b==NULL)
+    return false;
+    else if(!strcmp(b->val, "all"))
+    return true;
+    else if(a==NULL)
+    return false;
+    else
+    {
+        if(!strcmp(a->val,b->val) && (a->dim == b->dim))
+        return cmplist(a->next, b->next);
+        else return false;
+    }
+
+}
+
+void cmpsym(symrec n1, symrec n2){
+
+    if(strcmp(n1.datatype, n2.datatype) && strcmp(n1.datatype,"all") && strcmp(n2.datatype,"all")) yyerror("Datatype doesn't match");
+    if(n1.type != n2.type) yyerror("Datatype doesn't match");
+    if(n1.dimension != n2.dimension) yyerror("Dimensions doesn't match");
+    if(!cmplist(n1.args, n2.args)) yyerror("Arguments doesn't match");
+    
+    return ;
+
+}
+
 %}
 
 %union{
@@ -455,7 +517,7 @@ void mergep(nlist* &n1, nlist* n2){
 %type<num>  TypeImportOnDemandDeclaration TypeDeclaration Name SingleName MultipleName Type PrimitiveType ReferenceType ClassHeader
 %type<num>  NumericType ClassOrInterfaceType ClassType ArrayType ClassDeclaration ClassBody ClassBodyDeclarations InterfaceHeader Super
 %type<num>  ClassBodyDeclaration ClassMemberDeclaration FieldDeclaration VariableDeclarators VariableDeclarator VariableDeclaratorId VariableInitializer
-%type<num>  MethodDeclaration MethodHeader MethodDeclarator FormalParameterList FormalParameter MethodBody StaticInitializer
+%type<num>  MethodDeclaration MethodHeader MethodDeclarator FormalParameterList FormalParameter MethodBody StaticInitializer ConstructorHeader
 %type<num>  ConstructorDeclaration ConstructorDeclarator ConstructorBody ExplicitConstructorInvocation InterfaceDeclaration InterfaceBody
 %type<num>  InterfaceMemberDeclarations InterfaceMemberDeclaration ConstantDeclaration AbstractMethodDeclaration ArrayInitializer VariableInitializers Block
 %type<num>  BlockStatements BlockStatement LocalVariableDeclarationStatement LocalVariableDeclaration Statement StatementNoShortIf StatementWithoutTrailingSubstatement
@@ -533,39 +595,25 @@ TypeDeclaration         : ClassDeclaration                          {$$ = $1;}
 
 Literal                 : INT_LITERAL               {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;
-                                                    codes[$$] = $1;
-                                                    exptypes[$$] = "int";}
+                                                    each_symrec[$$] = create_symrec("", "int", yylineno, 1, 0, NULL, true);}
                         | FLOAT_LITERAL             {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;
-                                                    codes[$$] = $1;
-                                                    exptypes[$$] = "float";}
+                                                    each_symrec[$$] = create_symrec("", "float", yylineno, 1, 0, NULL, true);}
                         | BOOL_LITERAL              {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;
-                                                    codes[$$] = $1;
-                                                    exptypes[$$] = "boolean";}
+                                                    each_symrec[$$] = create_symrec("", "boolean", yylineno, 1, 0, NULL, true);}
                         | CHAR_LITERAL              {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;
-                                                    codes[$$] = $1;
-                                                    exptypes[$$] = "char";}
+                                                    each_symrec[$$] = create_symrec("", "char", yylineno, 1, 0, NULL, true);}
                         | STRING_LITERAL            {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;
-                                                    codes[$$] = $1;
-                                                    exptypes[$$] = "String";}
+                                                    each_symrec[$$] = create_symrec("", "String", yylineno, 1, 0, NULL, true);}
                         | NULL_LITERAL              {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;
-                                                    codes[$$] = $1;
-                                                    exptypes[$$] = "";}
+                                                    each_symrec[$$] = create_symrec("", "null", yylineno, 1, 0, NULL, true);}
                         | TEXT_BLOCK                {$$ = node;
                                                     node++;
-                                                    each_symboltable[$$] = NULL;
-                                                    codes[$$] = $1;
-                                                    exptypes[$$] = "String";}
+                                                    each_symrec[$$] = create_symrec("", "text_block", yylineno, 1, 0, NULL, true);}
                         ;
 
 Name                    : SingleName                    {$$ = $1;}
@@ -573,13 +621,11 @@ Name                    : SingleName                    {$$ = $1;}
                         ;   
 SingleName              : IDENTIFIER                    {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0);
-                                                        codes[$$]= $1;}
+                                                        nt[$$] = create_list($1, 0);}
                         ;
 MultipleName            : Name DOT IDENTIFIER           {strcat(nt[$1]->val,$2);
                                                         strcat(nt[$1]->val,$3);
-                                                        $$ = $1;
-                                                        codes[$$] = nt[$1]->val;} 
+                                                        $$ = $1;} 
                         ;
 Modifiers               : STATIC Modifier           {$$ = $2;}
                         | Modifier STATIC           {$$ = $1;}
@@ -594,28 +640,23 @@ Type                    : PrimitiveType                 {$$ = $1;}
 PrimitiveType           : NumericType                   {$$ = $1;}
                         | BOOLEAN                       {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0); codes[$$] = $1; 
-                                                        exptypes[$$] = $1;}
+                                                        nt[$$] = create_list($1, 0);}
                         | STRINGTYPE                    {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0); codes[$$] = $1;
-                                                        exptypes[$$] = $1;}
+                                                        nt[$$] = create_list($1, 0);}
                         ;
 NumericType             : INTEGRALTYPE                  {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0); codes[$$] = $1;
-                                                        exptypes[$$] = $1;}
+                                                        nt[$$] = create_list($1, 0);}
                         | FLOATINGPOINTTYPE             {$$ = node;
                                                         node++;
-                                                        nt[$$] = create_list($1, 0); codes[$$] = $1;
-                                                        exptypes[$$] = $1;}
+                                                        nt[$$] = create_list($1, 0);}
                         
                         ;
 ReferenceType           : ClassOrInterfaceType          {$$ = $1;} 
                         | ArrayType                     {$$ = $1;}
                         ;
-ClassOrInterfaceType    : Name                          {$$ = $1;
-                                                        exptypes[$$] = nt[$1]->val;}                
+ClassOrInterfaceType    : Name                          {$$ = $1;}               
                         ;
 ClassType               : ClassOrInterfaceType          {$$ = $1;}
                         ;
@@ -627,8 +668,7 @@ ArrayType               : PrimitiveType OSB CSB                     {nt[$1]->dim
                                                                     $$ = $1;} 
                         ;
 
-ClassDeclaration        : ClassHeader ClassBody                             {
-                                                                            $$ = $1;
+ClassDeclaration        : ClassHeader ClassBody                             {$$ = $1;
                                                                             if(each_symboltable[$2]!=NULL){
                                                                                 pop_global(each_symboltable[$2]);
                                                                                 symboltables.push_back(each_symboltable[$2]);
@@ -638,6 +678,10 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                 else yyerror("Class already exists.");
                                                                                 each_symboltable[$2] = NULL;
                                                                                 }
+                                                                            if(Construct!=NULL){
+                                                                                each_symboltable[$$]->info.args = Construct->info.args;
+                                                                                Construct = NULL;
+                                                                            }
                                                                             } 
                         | ClassHeader Super ClassBody                       {$$ = $1;
                                                                             pop_pglobal(each_symboltable[$2]);
@@ -653,7 +697,11 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                             symboltables.push_back(each_symboltable[$3]);
                                                                             parents[each_symboltable[$1]->info.name] = nt[$2]->val;
                                                                             each_symboltable[$2] = NULL;
-                                                                            each_symboltable[$3] = NULL;}
+                                                                            each_symboltable[$3] = NULL;
+                                                                            if(Construct!=NULL){
+                                                                                each_symboltable[$$]->info.args = Construct->info.args;
+                                                                                Construct = NULL;
+                                                                            }}
                         ;
 ClassHeader             : CLASS IDENTIFIER                              {$$ = node;
                                                                         node++;
@@ -689,22 +737,25 @@ ClassBodyDeclaration    : ClassMemberDeclaration    {$$ = $1;}
 ClassMemberDeclaration  : FieldDeclaration          {$$ = $1;}
                         | MethodDeclaration         {$$ = $1;}
                         ;
-FieldDeclaration        : Type VariableDeclarators SEMICOLON        {
-                                                                    $$ = node;
+FieldDeclaration        : Type VariableDeclarators SEMICOLON        {$$ = node;
                                                                     node++;
+                                                                    if(each_symrec.find($2)!=each_symrec.end() && (strcmp(each_symrec[$2].datatype, nt[$1]->val) || (each_symrec[$2].dimension != nt[$1]->dim))) yyerror("Type doesn't match.");
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);}
                         | Modifiers Type VariableDeclarators SEMICOLON  {$$ = node;
                                                                     node++;
+                                                                    if(each_symrec.find($3)!=each_symrec.end() && (strcmp(each_symrec[$3].datatype, nt[$2]->val) || (each_symrec[$3].dimension != nt[$2]->dim))) yyerror("Type doesn't match.");
                                                                     each_symboltable[$$] = create_st(nt[$3], nt[$2], yylineno, 1, 0, NULL, $1);
-                                                                    push_global(each_symboltable[$$]);  }
+                                                                    push_global(each_symboltable[$$]);}
                         ;
 VariableDeclarators     : VariableDeclarator                            {$$ = $1;}
-                        | VariableDeclarators COMMA VariableDeclarator  {merge(nt[$1],nt[$3]);
+                        | VariableDeclarators COMMA VariableDeclarator  {if(each_symrec.find($1)!= each_symrec.end() && each_symrec.find($3)!= each_symrec.end()) cmpsym(each_symrec[$1], each_symrec[$3]);
+                                                                        merge(nt[$1],nt[$3]);
                                                                         $$ = $1;}
                         ;
 VariableDeclarator      : VariableDeclaratorId                          {$$ = $1;}
-                        | VariableDeclaratorId EQ VariableInitializer   {$$ = $1;}
+                        | VariableDeclaratorId EQ VariableInitializer   {$$ = $1;
+                                                                        each_symrec[$$] = each_symrec[$3];}
                         ;
 VariableDeclaratorId    : IDENTIFIER                                    {$$ = node;
                                                                         node++;
@@ -712,51 +763,56 @@ VariableDeclaratorId    : IDENTIFIER                                    {$$ = no
                         | VariableDeclaratorId OSB CSB                  {nt[$1]->dim++;
                                                                         $$ = $1;}
                         ;
-VariableInitializer     : Expression
-                        | ArrayInitializer
+VariableInitializer     : Expression                                    {$$ = $1;}
+                        | ArrayInitializer                              {$$ = $1;}
                         ;
-MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;}
+MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;
+                                                                    if(each_symboltable[$$]->next!=NULL){
+                                                                        nlist* k = each_symboltable[$$]->next;
+                                                                        pop_global(k);
+                                                                        symboltables.push_back(k);
+                                                                    }}
                         ;
 MethodHeader            : Type MethodDeclarator                     {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$2];
-                                                                    if(each_symboltable[$2]) $$ = $2;}          
+                                                                    push_global(each_symboltable[$2]);
+                                                                    each_symboltable[$$]->info.args = args[$2];}          
                         | Modifiers Type MethodDeclarator           {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$3], nt[$1], yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$3];
-                                                                    if(each_symboltable[$3]!=NULL) $$ = $3;}
+                                                                    push_global(each_symboltable[$3]);
+                                                                    each_symboltable[$$]->info.args = args[$3];}
                         | VOID MethodDeclarator                     {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$2];
-                                                                    if(each_symboltable[$2]) $$ = $2;}
+                                                                    push_global(each_symboltable[$2]);
+                                                                    each_symboltable[$$]->info.args = args[$2];}
                         | Modifiers VOID MethodDeclarator           {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$3], create_list($2, 0), yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$3];
-                                                                    if(each_symboltable[$3]!=NULL) $$ = $3;}
+                                                                    push_global(each_symboltable[$3]);
+                                                                    each_symboltable[$$]->info.args = args[$3];}
                         ;
-MethodDeclarator        : SingleName ONB CNB                            {$$ = $1;}
+MethodDeclarator        : SingleName ONB CNB                            {$$ = $1;
+                                                                        each_symboltable[$$] = NULL;}
                         | SingleName ONB FormalParameterList CNB        {$$ = $3;
                                                                         list* k = nt[$3];
                                                                         nt[$$] = nt[$1];
                                                                         args[$$] = k;}
-                        | MethodDeclarator OSB CSB                      {$$ = $1;}
                         ;
 FormalParameterList     : FormalParameter                               {$$ = $1;}
                         | FormalParameterList COMMA FormalParameter     {merge(nt[$1],nt[$3]);
-                                                                        $$ = $1;}
+                                                                        $$ = $1;
+                                                                        mergen(each_symboltable[$1],each_symboltable[$3]);}
                         ;
 FormalParameter         : Type VariableDeclaratorId                 {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL, true);
-                                                                    push_global(each_symboltable[$$]);
                                                                     nt[$$] = nt[$1];}            
                         ;
 MethodBody              : Block                     {$$ = $1;}
@@ -766,20 +822,25 @@ MethodBody              : Block                     {$$ = $1;}
                         ;           
 StaticInitializer       : STATIC Block              {$$ = $2;}
                         ;
-ConstructorDeclaration  : ConstructorDeclarator ConstructorBody         {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = create_st(nt[$1], create_list("Constructor", 0), yylineno, 3, 0, NULL, true);
-                                                                    push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$1];}
-                        | Modifiers ConstructorDeclarator ConstructorBody   {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = create_st(nt[$2], create_list("Constructor", 0), yylineno, 3, 0, NULL, $1);
-                                                                    push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$2];}
+ConstructorDeclaration  : ConstructorHeader ConstructorBody         {$$ = $1;
+                                                                    pop_global(each_symboltable[$$]);
+                                                                    symboltables.push_back(each_symboltable[$$]);
+                                                                    each_symboltable[$$] = NULL;}
                         ;
-ConstructorDeclarator   : SingleName ONB CNB                        {$$ = $1;}   
-                        | SingleName ONB FormalParameterList CNB    {$$ = $1;
-                                                                    args[$$] = nt[$3];} 
+ConstructorHeader       : ConstructorDeclarator                     {$$ = $1;
+                                                                    create_cons(nt[$1]->val, "Constructor", yylineno, 3, 0, args[$1], true);
+                                                                    push_global(each_symboltable[$1]);}
+                        | Modifiers ConstructorDeclarator           {$$ = node;
+                                                                    node++;
+                                                                    create_cons(nt[$2]->val, "Constructor", yylineno, 3, 0, args[$2], $1);
+                                                                    push_global(each_symboltable[$2]);}
+                        ;
+ConstructorDeclarator   : SingleName ONB CNB                            {$$ = $1;
+                                                                        each_symboltable[$$] = NULL;}   
+                        | SingleName ONB FormalParameterList CNB        {$$ = $3;
+                                                                        list* k = nt[$3];
+                                                                        nt[$$] = nt[$1];
+                                                                        args[$$] = k;}
                         ;   
 ConstructorBody         : OCB CCB                   {$$ = node;
                                                     node++;
@@ -845,13 +906,20 @@ ConstantDeclaration     : FieldDeclaration                              {$$ = $1
 AbstractMethodDeclaration   : MethodHeader SEMICOLON                    {$$ = $1;}
                             ;
 
-ArrayInitializer        : OCB CCB
-                        | OCB VariableInitializers CCB
-                        | OCB COMMA CCB
-                        | OCB VariableInitializers COMMA CCB
+ArrayInitializer        : OCB CCB                                       {$$ = node;
+                                                                        node++;
+                                                                        each_symrec[$$] = create_symrec("", "all", yylineno, 1, 1, NULL, true);}
+                        | OCB VariableInitializers CCB                  {$$ = $2;
+                                                                        each_symrec[$$].dimension++;}
+                        | OCB COMMA CCB                                 {$$ = node;
+                                                                        node++;
+                                                                        each_symrec[$$] = create_symrec("", "all", yylineno, 1, 1, NULL, true);}
+                        | OCB VariableInitializers COMMA CCB            {$$ = $2;
+                                                                        each_symrec[$$].dimension++;}
                         ;
-VariableInitializers    : VariableInitializer
-                        | VariableInitializers COMMA VariableInitializer
+VariableInitializers    : VariableInitializer                           {$$ = $1;}
+                        | VariableInitializers COMMA VariableInitializer    {if(each_symrec.find($1)!= each_symrec.end() && each_symrec.find($3)!= each_symrec.end()) cmpsym(each_symrec[$1], each_symrec[$3]);
+                                                                            $$ = $1;}
                         ;
 
 Block                   : OCB CCB                                           {$$ = node;
@@ -872,12 +940,13 @@ BlockStatements         : BlockStatement                                    {$$ 
 BlockStatement          : LocalVariableDeclarationStatement                 {$$ = $1;}
                         | Statement                                         {$$ = $1;}               
                         ;
-LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON    {$$ = $1; }
+LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON    {$$ = $1;}
                                     ;
 LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
                                                                     node++;
+                                                                    if(each_symrec.find($2)!=each_symrec.end() && (strcmp(each_symrec[$2].datatype, nt[$1]->val) || (each_symrec[$2].dimension != nt[$1]->dim))) yyerror("Type doesn't match.");
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL, true);
-                                                                    push_global(each_symboltable[$$]);  }   
+                                                                    push_global(each_symboltable[$$]);}   
                             ;
 Statement               : StatementWithoutTrailingSubstatement      {$$ = $1;}   
                         | LabeledStatement                          {$$ = $1;}
@@ -914,7 +983,8 @@ LabeledStatementNoShortIf   : IDENTIFIER COLON StatementNoShortIf           {$$ 
                             ;
 ExpressionStatement     : StatementExpression SEMICOLON                     {$$ = $1;}
                         ;
-StatementExpression     : Assignment                                        {$$ = $1;}
+StatementExpression     : Assignment                                        {$$ = $1;
+                                                                            each_symboltable[$$] = NULL;}
                         | PreIncrementExpression                            {$$ = $1;}
                         | PreDecrementExpression                            {$$ = $1;}
                         | PostIncrementExpression                           {$$ = $1;}
@@ -1147,9 +1217,13 @@ ContinueStatement       : CONTINUE SEMICOLON                        {$$ = node;
 ReturnStatement         : RETURN SEMICOLON                          {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;} 
-                        | RETURN Expression SEMICOLON               {$$ = $2;} 
+                        | RETURN Expression SEMICOLON               {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;}  
                         ;
-ThrowStatement          : THROW Expression SEMICOLON                {$$ = $2;} 
+ThrowStatement          : THROW Expression SEMICOLON                {$$ = node;
+                                                                    node++;
+                                                                    each_symboltable[$$] = NULL;} 
                         ;
 SynchronizedStatement   : SYNCHRONIZED  ONB Expression CNB Block    {$$ = $5;} 
                         ;
@@ -1180,419 +1254,303 @@ PrimaryNoNewArray       : Literal                                   {$$ = $1;}
                         ;
 ClassInstanceCreationExpression : NEW ClassType ONB CNB             {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;}  
+                                                                    nlist* n = find_in_list(global_tail, nt[$2]->val);
+                                                                    if(n!=NULL && n->info.type == 2){
+                                                                        each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 2, 0, NULL, true);
+                                                                    }
+                                                                    else yyerror("Class not found.");}  
                                 | NEW ClassType ONB ArgumentList CNB    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    nlist* n = find_in_list(global_tail, nt[$2]->val);
+                                                                    if(n!=NULL && n->info.type == 2){
+                                                                        each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 2, 0, args[$4], true);
+                                                                        cmplist(args[$4], n->info.args);
+                                                                    }
+                                                                    else yyerror("Class not found.");}
                                 ;
-ArgumentList            : Expression                                
-                        | ArgumentList COMMA Expression             
+ArgumentList            : Expression                                {$$ = node;
+                                                                    node++;
+                                                                    args[$$] = create_list(each_symrec[$1].datatype, each_symrec[$1].dimension);}         
+                        | ArgumentList COMMA Expression             {$$ = $1;
+                                                                    merge(args[$1],create_list(each_symrec[$3].datatype, each_symrec[$3].dimension));}    
                         ;
 ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim, NULL, true);} 
                         | NEW PrimitiveType DimExprs Dims           {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim + nt[$4]->dim, NULL, true);} 
                         | NEW ClassOrInterfaceType DimExprs         {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    nlist* n = find_in_list(global_tail, nt[$2]->val);
+                                                                    if(n!=NULL && n->info.type == 2) each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim , NULL, true);
+                                                                    else yyerror("Class not found.");} 
                         | NEW ClassOrInterfaceType DimExprs Dims    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    nlist* n = find_in_list(global_tail, nt[$2]->val);
+                                                                    if(n!=NULL && n->info.type == 2) each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim + nt[$4]->dim, NULL, true);
+                                                                    else yyerror("Class not found.");} 
                         ;
-DimExprs                : DimExpr
-                        | DimExprs DimExpr
+DimExprs                : DimExpr                                   {$$ = node;
+                                                                    node++;
+                                                                    nt[$$] = create_list("", 1);}
+                        | DimExprs DimExpr                          {$$ = $1;
+                                                                    nt[$$]->dim++;}
                         ;
-DimExpr                 : OSB Expression CSB
+DimExpr                 : OSB Expression CSB                        {if(strcmp(each_symrec[$2].datatype, "int")) yyerror("Expected a int");}
                         ;
-Dims                    : OSB CSB
-                        | Dims OSB CSB
+Dims                    : OSB CSB                                   {$$ = node;
+                                                                    node++;
+                                                                    nt[$$] = create_list("", 1);}
+                        | Dims OSB CSB                              {$$ = $1;
+                                                                    nt[$$]->dim++;}
                         ;   
 FieldAccess             : Primary DOT IDENTIFIER                    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    string p = strdup(each_symrec[$1].datatype);
+                                                                    if(classtable.find(p)!=classtable.end()) {
+                                                                        nlist* p_tail = classtable[p];
+                                                                        if(p_tail == NULL) yyerror("Variable not found.");
+                                                                        else{
+                                                                            while(p_tail->next!=NULL) p_tail = p_tail->next;
+                                                                            nlist* n = find_in_list(p_tail, $3);
+                                                                            if(n!=NULL) each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, n->info.args, n->info.mod);
+                                                                            else yyerror("Variable not found");                                                                          
+                                                                        }
+                                                                    }
+                                                                    else yyerror("Class not found.");} 
                         | SUPER DOT IDENTIFIER                      {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    string p = "super.";
+                                                                    char* z = const_cast<char*>(p.c_str());
+                                                                    strcat(z,$3);
+                                                                    nlist* n = find_in_list(global_tail, z);
+                                                                    mergen(n,find_in_list(pglobal_tail,z));
+                                                                    if(n!=NULL) each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, n->info.args, n->info.mod);
+                                                                    else yyerror("Variable not found");} 
                         ;   
 MethodInvocation        : Name ONB CNB                              {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    nlist* n = find_in_list(global_tail, nt[$1]->val);
+                                                                    mergen(n,find_in_list(pglobal_tail, nt[$1]->val));
+                                                                    if(n!=NULL && (n->info.type == 3)) {
+                                                                        each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, NULL, n->info.mod);
+                                                                        cmpsym(each_symrec[$$],n->info);
+                                                                    }   
+                                                                    else yyerror("Method not found");} 
                         | Name ONB ArgumentList CNB                 {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    nlist* n = find_in_list(global_tail, nt[$1]->val);
+                                                                    mergen(n,find_in_list(pglobal_tail, nt[$1]->val));
+                                                                    if(n!=NULL && (n->info.type == 3)) {
+                                                                        each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, args[$3], n->info.mod);
+                                                                        cmpsym(each_symrec[$$],n->info);
+                                                                    }
+                                                                    else yyerror("Method not found");} 
                         | Primary DOT IDENTIFIER ONB CNB            {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    string p = strdup(each_symrec[$1].datatype);
+                                                                    if(classtable.find(p)!=classtable.end()) {
+                                                                        nlist* p_tail = classtable[p];
+                                                                        if(p_tail == NULL) yyerror("Method not found.");
+                                                                        else{
+                                                                            while(p_tail->next!=NULL) p_tail = p_tail->next;
+                                                                            nlist* n = find_in_list(p_tail, $3);
+                                                                            if(n!=NULL && (n->info.type == 3)) {
+                                                                                each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, NULL, n->info.mod);
+                                                                                cmpsym(each_symrec[$$],n->info);
+                                                                            }
+                                                                            else yyerror("Method not found");                                                                          
+                                                                        }
+                                                                    }
+                                                                    else yyerror("Class not found.");}
                         | Primary DOT IDENTIFIER ONB ArgumentList CNB   {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    string p = strdup(each_symrec[$1].datatype);
+                                                                    if(classtable.find(p)!=classtable.end()) {
+                                                                        nlist* p_tail = classtable[p];
+                                                                        if(p_tail == NULL) yyerror("Method not found.");
+                                                                        else{
+                                                                            while(p_tail->next!=NULL) p_tail = p_tail->next;
+                                                                            nlist* n = find_in_list(p_tail, $3);
+                                                                            if(n!=NULL && (n->info.type == 3)) {
+                                                                                each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, args[$5], n->info.mod);
+                                                                                cmpsym(each_symrec[$$],n->info);
+                                                                            }
+                                                                            else yyerror("Method not found");                                                                          
+                                                                        }
+                                                                    }
+                                                                    else yyerror("Class not found.");}
                         | SUPER DOT IDENTIFIER ONB CNB              {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    string p = "super.";
+                                                                    char* z = const_cast<char*>(p.c_str());
+                                                                    strcat(z,$3);
+                                                                    nlist* n = find_in_list(global_tail, z);
+                                                                    mergen(n,find_in_list(pglobal_tail,z));
+                                                                    if(n!=NULL && (n->info.type == 3)) {
+                                                                        each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, NULL, n->info.mod);
+                                                                        cmpsym(each_symrec[$$],n->info);
+                                                                    }
+                                                                    else yyerror("Variable not found");} 
                         | SUPER DOT IDENTIFIER ONB ArgumentList CNB {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    string p = "super.";
+                                                                    char* z = const_cast<char*>(p.c_str());
+                                                                    strcat(z,$3);
+                                                                    nlist* n = find_in_list(global_tail, z);
+                                                                    mergen(n,find_in_list(pglobal_tail,z));
+                                                                    if(n!=NULL && (n->info.type == 3)) {
+                                                                        each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, args[$5], n->info.mod);
+                                                                        cmpsym(each_symrec[$$],n->info);
+                                                                    }
+                                                                    else yyerror("Variable not found");} 
                         ;
-ArrayAccess             : Name OSB Expression CSB
-                        | PrimaryNoNewArray OSB Expression CSB
+ArrayAccess             : Name OSB Expression CSB                   {$$ = node;
+                                                                    node++;
+                                                                    if(strcmp(each_symrec[$3].datatype, "int")) yyerror("Expected a int");
+                                                                    nlist* n = find_in_list(global_tail, nt[$1]->val);
+                                                                    mergen(n,find_in_list(pglobal_tail, nt[$1]->val));
+                                                                    if(n!=NULL) {
+                                                                        if(n->info.dimension-1 >= 0)
+                                                                        each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension-1, n->info.args, n->info.mod);
+                                                                        else
+                                                                        yyerror("Array dimensions doesn't match.");
+                                                                    }
+                                                                    else yyerror("Variable not found");}       
+                        | PrimaryNoNewArray OSB Expression CSB      {$$ = node;
+                                                                    node++;
+                                                                    if(strcmp(each_symrec[$3].datatype, "int")) yyerror("Expected a int");
+                                                                    if((each_symrec[$1].dimension-1)>=0) each_symrec[$1].dimension--;
+                                                                    else yyerror("Array dimensions doesn't match.");}
                         ;
 PostfixExpression       : Primary                                   {$$=$1;}
-                        | Name                                      {$$=$1;
-                                                                     nlist *q = find_in_list(global_tail,nt[$1]->val);
-                                                                    if(!q) yyerror("variable not declared in this scope");
-                                                                    exptypes[$$] = q->info.datatype;
-                                                                    }
+                        | Name                                      {$$ = node;
+                                                                    node++;
+                                                                    nlist* n = find_in_list(global_tail, nt[$1]->val);
+                                                                    mergen(n,find_in_list(pglobal_tail, nt[$1]->val));
+                                                                    if(n!=NULL) {
+                                                                        each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, n->info.args, n->info.mod);
+                                                                    }   
+                                                                    else yyerror("Variable not found");} 
                         | PostIncrementExpression                   {$$=$1;}
                         | PostDecrementExpression                   {$$=$1;}
                         ;
-PostIncrementExpression : PostfixExpression INC                     {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1]) != types1.end()){
-                                                                    string v= gen_var();
-                                                                    fout<<"\t"<<v<<":="<<codes[$1]<<endl;
-                                                                    fout<<"\t"<<codes[$1]<<":= "<<codes[$1]<<" + 1"<<endl;
-                                                                        codes[$$] = v;
-                                                                        exptypes[$$] = exptypes[$1];
-                                                                    }
-                                                                    else{
-                                                                        yyerror("incompatible operand types for ++");
-                                                                    }
-                                                                    } 
+PostIncrementExpression : PostfixExpression INC                     {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1) $$ = $1;
+                                                                    else yyerror("Expected a Primitive datatype."); } 
                         ;   
-PostDecrementExpression : PostfixExpression DEC                     {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1]) != types1.end()){
-                                                                    string v= gen_var();
-                                                                    fout<<"\t"<<v<<":="<<codes[$1]<<endl;
-                                                                    fout<<"\t"<<codes[$1]<<":= "<<codes[$1]<<" - 1"<<endl;
-                                                                        codes[$$] = v;
-                                                                        exptypes[$$] = exptypes[$1];
-                                                                        }
-                                                                        else{
-                                                                        yyerror("incompatible operand types for --");
-                                                                    }
-                                                                    } 
+PostDecrementExpression : PostfixExpression DEC                     {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1) $$ = $1;
+                                                                    else yyerror("Expected a Primitive datatype."); } 
                         ;
 UnaryExpression         : PreIncrementExpression                    {$$ = $1;}
                         | PreDecrementExpression                    {$$ = $1;}
-                        | PLUS UnaryExpression                      {$$ = node; node++; 
-                                                                        if(types1.find(exptypes[$2]) != types1.end())
-                                                                        {
-                                                                            if(exptypes[$2]=="long"||exptypes[$2]=="char") exptypes[$$] = "int";
-                                                                            else exptypes[$$] = exptypes[$2];
-                                                                        }
-                                                                        else yyerror("incompatible operand type for unary +");
-                                                                    }
-                        | MINUS UnaryExpression                     {   $$ = node; node++;
-                                                                        if(types1.find(exptypes[$2]) != types1.end()){
-                                                                        string v= gen_var();
-                                                                        fout << "\t"<<v<<":= "<<" -"<<codes[$2]<<endl;
-                                                                        codes[$$] = v;
-                                                                        exptypes[$$] = exptypes[$2];
-                                                                        if(exptypes[$2]=="long"||exptypes[$2]=="char") exptypes[$$] = "int";
-                                                                        }
-                                                                        else yyerror("incompatible operand type for unary -");
-                                                                    }
+                        | PLUS UnaryExpression                      {$$ = $2;}
+                        | MINUS UnaryExpression                     {$$ = $2;}
                         | UnaryExpressionNotPlusMinus               {$$ = $1;}
                         ;
-PreIncrementExpression  : INC UnaryExpression                       {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$2]) != types1.end()){
-                                                                        fout << "\t"<<codes[$2]<<":= "<<codes[$2]<<" + 1"<<endl;
-                                                                        codes[$$] = codes[$2];
-                                                                        exptypes[$$] = exptypes[$2];
-                                                                    } 
-                                                                    else yyerror("incompatible operand type for ++");
-                                                                    } 
+PreIncrementExpression  : INC UnaryExpression                       {if(types.find(each_symrec[$2].datatype)!=types.end() && types[each_symrec[$2].datatype]==1) $$ = $2;
+                                                                    else yyerror("Expected a type Primitive datatype."); }  
                         ;
-PreDecrementExpression  : DEC UnaryExpression                       {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$2]) != types1.end()){
-                                                                        fout << "\t"<<codes[$2]<<":= "<<codes[$2]<<" - 1"<<endl;
-                                                                        codes[$$] = codes[$2];
-                                                                        exptypes[$$] = exptypes[$2];
-                                                                    }
-                                                                    else yyerror("incompatible operand type for --");
-                                                                    } 
+PreDecrementExpression  : DEC UnaryExpression                       {if(types.find(each_symrec[$2].datatype)!=types.end() && types[each_symrec[$2].datatype]==1) $$ = $2;
+                                                                    else yyerror("Expected a type Primitive datatype."); }  
                         ;
-UnaryExpressionNotPlusMinus : PostfixExpression         {$$ = $1;}
-                            | NEG UnaryExpression       {   $$ = node; node++;
-                                                            if(types2.find(exptypes[$2]) == types2.end()) yyerror("incompatible operand type");
-                                                                        string v= gen_var();
-                                                                        fout << "\t"<<v<<":= "<<"~ "<<codes[$2]<<endl;
-                                                                        codes[$$] = v;
-                                                                        exptypes[$$] = exptypes[$2];
-                                                                        }
-                            | NOT UnaryExpression       {   $$ = node; node++;
-                                                            if(exptypes[$2]!= "boolean") yyerror("incompatible operand type");
-                                                                        string v= gen_var();
-                                                                        fout << "\t"<<v<<":= "<<"! "<<codes[$2]<<endl;
-                                                                        codes[$$] = v;
-                                                                        exptypes[$$] = exptypes[$2];
-                                                                        }
-                            | CastExpression            {$$ = $1;}
+UnaryExpressionNotPlusMinus : PostfixExpression                     {$$ = $1;}
+                            | NEG UnaryExpression                   {if(!strcmp(each_symrec[$2].datatype,"int")) $$ = $2;
+                                                                    else yyerror("Expected a type int."); } 
+                            | NOT UnaryExpression                   {if(!strcmp(each_symrec[$2].datatype,"boolean")) $$ = $2;
+                                                                    else yyerror("Expected a type boolean."); } 
+                            | CastExpression                        {$$ = $1;}
                             ;
-CastExpression          : ONB PrimitiveType CNB UnaryExpression         {   $$ = node; node++; //cout<<"cout"<<exptypes[$2]<<" 4"<<exptypes[$4];
-                                                                        if(types1.find(exptypes[$2]) != types1.end()){
-                                                                            if(types1.find(exptypes[$4]) != types1.end()){
-                                                                        string v= gen_var();
-                                                                        fout << "\t"<<v<<":= "<<"cast_to_"<<codes[$2]<<" "<<codes[$4]<<endl;
-                                                                        codes[$$] = v;
-                                                                        exptypes[$$] = exptypes[$2];
-                                                                            }else yyerror("conversion not possible");
-                                                                            }
-                                                                            else yyerror("conversion not possible");
-                                                                        }
-                        | ONB PrimitiveType Dims CNB UnaryExpression    
-                        | ONB Expression CNB UnaryExpressionNotPlusMinus
-                        | ONB Name Dims CNB UnaryExpressionNotPlusMinus
+CastExpression          : ONB PrimitiveType CNB UnaryExpression     {if(types.find(each_symrec[$4].datatype)!=types.end() && types[each_symrec[$4].datatype]==1 && types.find(nt[$2]->val)!=types.end() && types[nt[$2]->val]==1) {
+                                                                        each_symrec[$4].datatype = nt[$2]->val;
+                                                                        $$ = $4;
+                                                                    }}
                         ;
 MultiplicativeExpression    : UnaryExpression                                   {$$ = $1;}
-                            | MultiplicativeExpression STAR UnaryExpression     {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
-                                                                        yyerror("incompatible operand types for *");
-                                                                    gen_exp_types($1,$3,$$,$2);
-                                                                    } 
-                            | MultiplicativeExpression DIV UnaryExpression      {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
-                                                                        yyerror("incompatible operand types for /");
-                                                                    gen_exp_types($1,$3,$$,$2);
-                                                                    } 
-                            | MultiplicativeExpression MOD UnaryExpression      {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
-                                                                        yyerror("incompatible operand types for %");
-                                                                    gen_exp_types($1,$3,$$,$2);
-                                                                    } 
+                            | MultiplicativeExpression STAR UnaryExpression     {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1 && types.find(each_symrec[$3].datatype)!=types.end() && types[each_symrec[$3].datatype]==1) $$ = $1;
+                                                                                else yyerror("Type doesn't match.");}
+                            | MultiplicativeExpression DIV UnaryExpression      {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1 && types.find(each_symrec[$3].datatype)!=types.end() && types[each_symrec[$3].datatype]==1) $$ = $1;
+                                                                                else yyerror("Type doesn't match.");} 
+                            | MultiplicativeExpression MOD UnaryExpression      {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1 && types.find(each_symrec[$3].datatype)!=types.end() && types[each_symrec[$3].datatype]==1) $$ = $1;
+                                                                                else yyerror("Type doesn't match.");} 
                             ;
 AdditiveExpression      : MultiplicativeExpression                          {$$ = $1;}
-                        | AdditiveExpression PLUS MultiplicativeExpression   {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end()){
-                                                                        if(exptypes[$1]== "String" && exptypes[$3]== "String") gen_exp_types($1,$3,$$,"concatenate");
-                                                                        else yyerror("incompatible operand types for +");}
-                                                                    else gen_exp_types($1,$3,$$,$2);
-                                                                    } 
-                        | AdditiveExpression MINUS MultiplicativeExpression     {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
-                                                                        yyerror("incompatible operand types for -");
-                                                                    gen_exp_types($1,$3,$$,$2);
-                                                                    } 
+                        | AdditiveExpression PLUS MultiplicativeExpression  {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1 && types.find(each_symrec[$3].datatype)!=types.end() && types[each_symrec[$3].datatype]==1) $$ = $1;
+                                                                            else if(!strcmp(each_symrec[$1].datatype,"String")) $$ = $1;
+                                                                            else if(!strcmp(each_symrec[$3].datatype,"String")) $$ = $3;
+                                                                            else yyerror("Type doesn't match.");} 
+                        | AdditiveExpression MINUS MultiplicativeExpression {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1 && types.find(each_symrec[$3].datatype)!=types.end() && types[each_symrec[$3].datatype]==1) $$ = $1;
+                                                                            else yyerror("Type doesn't match.");}
                         ;
 ShiftExpression         : AdditiveExpression                            {$$ = $1;}
-                        | ShiftExpression SHIFT AdditiveExpression      {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end())
-                                                                        yyerror("incompatible operand types for SHIFT");
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":="  << codes[$1] <<" "<<$2<<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    exptypes[$$] = "int";
-                                                                    } 
+                        | ShiftExpression SHIFT AdditiveExpression      {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1 && types.find(each_symrec[$3].datatype)!=types.end() && types[each_symrec[$3].datatype]==1) $$ = $1;
+                                                                        else yyerror("Type doesn't match.");}  
                         ;
-RelationalExpression    : ShiftExpression                               {$$=$1;}
-                        | RelationalExpression RELGL ShiftExpression    {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
-                                                                        yyerror("incompatible operand types for relational operators");
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    exptypes[$$] = "boolean";
-                                                                    } 
-                        | RelationalExpression INSTANCEOF ReferenceType   {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1]) != types1.end() || types1.find(exptypes[$3]) != types1.end()) 
-                                                                        yyerror("incompatible operand types for instanceof");
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":=" << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    exptypes[$$] = "boolean";
-                                                                    } 
+RelationalExpression    : ShiftExpression                               {$$ = $1;}
+                        | RelationalExpression RELGL ShiftExpression    {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1 && types.find(each_symrec[$3].datatype)!=types.end() && types[each_symrec[$3].datatype]==1) {
+                                                                            $$ = $1;
+                                                                            each_symrec[$$].datatype = "boolean";
+                                                                        }   
+                                                                        else yyerror("Type doesn't match.");} 
+                        | RelationalExpression INSTANCEOF ReferenceType {if(types.find(each_symrec[$1].datatype)!=types.end() && types[each_symrec[$1].datatype]==1 && types.find(each_symrec[$3].datatype)!=types.end() && types[each_symrec[$3].datatype]==1) {
+                                                                            $$ = $1;
+                                                                            each_symrec[$$].datatype = "boolean";
+                                                                        }
+                                                                        else yyerror("Type doesn't match.");} 
                         ;
 EqualityExpression      : RelationalExpression                              {$$ = $1;}
-                        | EqualityExpression RELEQ RelationalExpression     {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end()){
-                                                                        if(exptypes[$1]== "String" && exptypes[$3]== "String");
-                                                                        else yyerror("incompatible operand types for ==");}
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " = " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    exptypes[$$] = "boolean";
-                                                                    } 
-                        | EqualityExpression RELNOTEQ RelationalExpression  {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end()){
-                                                                        if(exptypes[$1]== "String" && exptypes[$3]== "String");
-                                                                        else yyerror("incompatible operand types for !=");}
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    exptypes[$$] = "boolean";
-                                                                    } 
+                        | EqualityExpression RELEQ RelationalExpression     {cmpsym(each_symrec[$1],each_symrec[$3]);
+                                                                            $$ = $1;}
+                        | EqualityExpression RELNOTEQ RelationalExpression  {cmpsym(each_symrec[$1],each_symrec[$3]);
+                                                                            $$ = $1;} 
                         ;
 AndExpression           : EqualityExpression                        {$$ = $1;}
-                        | AndExpression AND EqualityExpression      {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    exptypes[$$] = "int";
-                                                                    if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
-                                                                        if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
-                                                                        else yyerror("incompatible operand types for &");}
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    } 
+                        | AndExpression AND EqualityExpression      {cmpsym(each_symrec[$1],each_symrec[$3]);
+                                                                    $$ = $1;} 
                         ;
 ExclusiveOrExpression   : AndExpression                             {$$ = $1;}
-                        | ExclusiveOrExpression UP AndExpression    {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    exptypes[$$] = "int";
-                                                                    if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
-                                                                        if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
-                                                                        else yyerror("incompatible operand types for ^");}
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    } 
+                        | ExclusiveOrExpression UP AndExpression    {cmpsym(each_symrec[$1],each_symrec[$3]);
+                                                                    $$ = $1;} 
                         ;
 InclusiveOrExpression   : ExclusiveOrExpression                     {$$ =$1;}
-                        | InclusiveOrExpression OR ExclusiveOrExpression    {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    exptypes[$$] = "int";
-                                                                    if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
-                                                                        if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
-                                                                        else yyerror("incompatible operand types for |");}
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    } 
+                        | InclusiveOrExpression OR ExclusiveOrExpression    {cmpsym(each_symrec[$1],each_symrec[$3]);
+                                                                            $$ = $1;}  
                         ;
 ConditionalAndExpression    : InclusiveOrExpression                 {$$ = $1;}
-                            | ConditionalAndExpression RELAND InclusiveOrExpression {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(exptypes[$1]!= "boolean" || exptypes[$3]!= "boolean") 
-                                                                        yyerror("incompatible operand types for &&");
-                                                                    exptypes[$$] = "boolean";
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    } 
+                            | ConditionalAndExpression RELAND InclusiveOrExpression {cmpsym(each_symrec[$1],each_symrec[$3]);
+                                                                                    $$ = $1;}  
                             ;
 ConditionalOrExpression : ConditionalAndExpression                                          {$$ = $1;}
-                        | ConditionalOrExpression RELOR ConditionalAndExpression            {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL; 
-                                                                    if(exptypes[$1]!= "boolean" || exptypes[$3]!= "boolean")
-                                                                        yyerror("incompatible operand types for ||");
-                                                                    exptypes[$$] = "boolean";
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
-                                                                    } 
+                        | ConditionalOrExpression RELOR ConditionalAndExpression            {cmpsym(each_symrec[$1],each_symrec[$3]);
+                                                                                            $$ = $1;} 
                         ;
 ConditionalExpression   : ConditionalOrExpression                                           {$$ = $1;}
-                        | ConditionalOrExpression QM Expression COLON ConditionalExpression {   string t = gen_label(), f= gen_label(), v= gen_var();
-                                                                                                fout<<"\t"<<"if "<<codes[$1]<<" goto "<<t<<endl;
-                                                                                                fout<<"\t"<<v<<":= "<<codes[$5]<<endl;
-                                                                                                fout<<"\t"<<"goto "<<f<<endl;
-                                                                                                fout<<t<<":\n\t"<<v<<":= "<<codes[$3]<<endl;
-                                                                                                fout<<f<<":\n";
-                                                                                                $$ = node; node++;
-                                                                                                codes[$$] = v;
-                                                                                                exptypes[$$] = "int";
-                                                                                            }
+                        | ConditionalOrExpression QM Expression COLON ConditionalExpression {cmpsym(each_symrec[$3],each_symrec[$5]);
+                                                                                            $$ = $5;} 
                         ;
-AssignmentExpression    : ConditionalExpression         {$$ = node;
+AssignmentExpression    : ConditionalExpression         {$$ = $1;} 
+                        | Assignment                    {$$ = $1;} 
+                        ;
+Assignment              : LeftHandSide Assignment_Operators AssignmentExpression            {cmpsym(each_symrec[$1],each_symrec[$3]);
+                                                                                            $$ = $1;}
+                        ;
+Assignment_Operators    : ASSIGNMENT_OPERATOR                       
+                        | EQ                                        
+                        ;
+LeftHandSide            : Name                                      {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];
-                                                                    } 
-                        | Assignment                    {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];} 
+                                                                    nlist* n = find_in_list(global_tail, nt[$1]->val);
+                                                                    mergen(n,find_in_list(pglobal_tail, nt[$1]->val));
+                                                                    if(n!=NULL) {
+                                                                        each_symrec[$$] = create_symrec("", n->info.datatype, yylineno, n->info.type, n->info.dimension, n->info.args, n->info.mod);
+                                                                    }   
+                                                                    else yyerror("Variable not found");}
+                        | FieldAccess                               {$$ = $1;}  
+                        | ArrayAccess                               {$$ = $1;}
                         ;
-Assignment              : LeftHandSide Assignment_Operators AssignmentExpression    {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    if(types2.find(exptypes[$1])!=types2.end() && types2.find(exptypes[$3])!=types2.end()) 
-                                                                    {
-                                                                         if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
-                                                                         else if(codes[$2] != "&=") fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"int "<<codes[$3]<<endl;
-                                                                         else fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<" "<<codes[$3]<<endl;
-                                                                    }
-                                                                    else if(types3.find(exptypes[$1])!=types3.end() && types3.find(exptypes[$3])!=types3.end()) 
-                                                                    {
-                                                                        if(codes[$2] == "&=") yyerror("incompatible operand types");
-                                                                        else if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
-                                                                         else fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"float "<<codes[$3]<<endl;
-                                                                    }
-                                                                    else if(exptypes[$1]==exptypes[$3]){ 
-                                                                        if(codes[$2] == "&=" && exptypes[$1]=="boolean") fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<" "<<codes[$3]<<endl;
-                                                                        else if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
-                                                                         else yyerror("incompatible types for assignment");
-                                                                    }
-                                                                    else if(types3.find(exptypes[$1])!=types3.end() && types2.find(exptypes[$3])!=types2.end()){
-                                                                        if(codes[$2]== "=") fout << "\t" << codes[$1] << " := cast_to_float " << codes[$3]<<endl;
-                                                                        else {
-                                                                            if(codes[$2] == "&=") yyerror("incompatible operand types");
-                                                                            string v= gen_var();
-                                                                            fout << "\t" << v << " := cast_to_float " << codes[$3]<<endl;
-                                                                            fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"float "<<v<<endl;
-                                                                        }
-                                                                    }
-                                                                    else yyerror("incompatible types for assignment (can also be lossy decomposition)");
-                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];
-                                                                    } 
+Expression              : AssignmentExpression                      {$$ = $1;} 
                         ;
-Assignment_Operators    : ASSIGNMENT_OPERATOR                       {$$ = node; node++;
-                                                                    codes[$$] = $1;
-                                                                    }
-                        | EQ                                       {$$ = node; node++;
-                                                                    codes[$$] = $1;
-                                                                    }
-                        ;
-LeftHandSide            : Name                                     {$$ = $1; // cout<<"variabel="<<nt[$1]->val<<endl;
-                                                                    nlist *q = find_in_list(global_tail,nt[$1]->val);
-                                                                    if(!q) yyerror("variable not declared in this scope");
-                                                                    exptypes[$$] = q->info.datatype;
-                                                                    }
-                        | FieldAccess                              
-                        | ArrayAccess
-                        ;
-Expression              : AssignmentExpression                      {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1];} 
-                        ;
-ConstantExpression      : Expression                                {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1];} 
+ConstantExpression      : Expression                                {$$ = $1;} 
                         ;
 
 %%                    
@@ -1605,11 +1563,11 @@ int main (int argc, char** argv) {
     types["char"] = 1;  types1.insert("char");          types2.insert("char");
     types["float"] = 1;     types1.insert("float");     types3.insert("float");
     types["double"] = 1;    types1.insert("double");    types3.insert("double");
-    types["String"] = 1;
-    types["class"] = 1;
-    types["interface"] = 1;
-    types["void"] = 1;
-    types["boolean"] = 1;
+    types["String"] = 2;
+    types["class"] = 2;
+    types["interface"] = 2;
+    types["void"] = 2;
+    types["boolean"] = 2;
 
     if(argc!=3)
     {
@@ -1654,7 +1612,6 @@ int main (int argc, char** argv) {
         }
         outfile << endl; 
     }
-    //fout << "System.out.println:\n\tprint()"
     outfile.close();
     fout.close();
 	return 0;
