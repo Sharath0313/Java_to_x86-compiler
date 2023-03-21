@@ -992,50 +992,39 @@ StatementExpression     : Assignment                                        {$$ 
                         | MethodInvocation                                  {$$ = $1;}
                         | ClassInstanceCreationExpression                   {$$ = $1;}
                         ;
-IfThenStatement         : IF ONB Expression CNB Statement                   {if(each_symboltable[$5]!=NULL){
-                                                                                pop_global(each_symboltable[$5]);
-                                                                                symboltables.push_back(each_symboltable[$5]);
-                                                                                each_symboltable[$5] = NULL;
-                                                                                $$ = $5;
-                                                                                }
-                                                                            }
+IfThenStatement         : IF ONB Expression CNB Statement                   {if(strcmp(each_symrec[$3].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
+                                                                            pop_global(each_symboltable[$5]);
+                                                                            symboltables.push_back(each_symboltable[$5]);
+                                                                            each_symboltable[$5] = NULL;
+                                                                            $$ = $5;}
                         ;
-IfThenElseStatement     : IF ONB Expression CNB StatementNoShortIf ELSE Statement   {if(each_symboltable[$5]!=NULL){
+IfThenElseStatement     : IF ONB Expression CNB StatementNoShortIf ELSE Statement   {if(strcmp(each_symrec[$3].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$5]);
                                                                                 symboltables.push_back(each_symboltable[$5]);
                                                                                 each_symboltable[$5] = NULL;
-                                                                                $$ = $5;
-                                                                                }
-                                                                            }
+                                                                                $$ = $5;}
                         ;
-IfThenElseStatementNoShortIf    : IF ONB Expression CNB StatementNoShortIf ELSE StatementNoShortIf  {if(each_symboltable[$5]!=NULL){
+IfThenElseStatementNoShortIf    : IF ONB Expression CNB StatementNoShortIf ELSE StatementNoShortIf  {if(strcmp(each_symrec[$3].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$5]);
                                                                                 symboltables.push_back(each_symboltable[$5]);
                                                                                 each_symboltable[$5] = NULL;
-                                                                                $$ = $5;
-                                                                                }
-                                                                            }
+                                                                                $$ = $5;}
                                 ;
-SwitchStatement         : SWITCH ONB Expression CNB SwitchBlock     {$$ = $5;}
+SwitchStatement         : SWITCH ONB Expression CNB SwitchBlock     {if(strcmp(each_symrec[$3].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
+                                                                    $$ = $5;}
                         ;
 SwitchBlock             : OCB CCB                                   {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;}  
                         | OCB SwitchLabels CCB                      {$$ = $2;}
-                        | OCB SwitchBlockStatementGroups CCB                {if(each_symboltable[$2]!=NULL){
-                                                                                pop_global(each_symboltable[$2]);
+                        | OCB SwitchBlockStatementGroups CCB                {pop_global(each_symboltable[$2]);
                                                                                 symboltables.push_back(each_symboltable[$2]);
                                                                                 each_symboltable[$2] = NULL;
-                                                                                $$ = $2;
-                                                                                }
-                                                                            }
-                        | OCB SwitchBlockStatementGroups SwitchLabels CCB   {if(each_symboltable[$2]!=NULL){
-                                                                                pop_global(each_symboltable[$2]);
+                                                                                $$ = $2;}
+                        | OCB SwitchBlockStatementGroups SwitchLabels CCB   {pop_global(each_symboltable[$2]);
                                                                                 symboltables.push_back(each_symboltable[$2]);
                                                                                 each_symboltable[$2] = NULL;
-                                                                                $$ = $2;
-                                                                                }
-                                                                            }
+                                                                                $$ = $2;}
                         ;
 SwitchBlockStatementGroups  : SwitchBlockStatementGroup             {$$ = $1;}    
                             | SwitchBlockStatementGroups SwitchBlockStatementGroup  {if(each_symboltable[$1]!=NULL) $$=$1;
@@ -1054,122 +1043,83 @@ SwitchLabel             : CASE ConstantExpression COLON             {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;} 
                         ;
-WhileStatement          : WHILE ONB Expression CNB Statement                {if(each_symboltable[$5]!=NULL){
+WhileStatement          : WHILE ONB Expression CNB Statement                {if(strcmp(each_symrec[$3].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$5]);
                                                                                 symboltables.push_back(each_symboltable[$5]);
                                                                                 each_symboltable[$5] = NULL;
-                                                                                $$ = $5;
-                                                                                }
-                                                                            }   
+                                                                                $$ = $5;}   
                         ;
-WhileStatementNoShortIf : WHILE ONB Expression CNB StatementNoShortIf       {if(each_symboltable[$5]!=NULL){
+WhileStatementNoShortIf : WHILE ONB Expression CNB StatementNoShortIf       {if(strcmp(each_symrec[$3].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$5]);
                                                                                 symboltables.push_back(each_symboltable[$5]);
                                                                                 each_symboltable[$5] = NULL;
-                                                                                $$ = $5;
-                                                                                }
-                                                                            }
+                                                                                $$ = $5;}
                         ;
-DoStatement             : DO Statement WHILE ONB Expression CNB SEMICOLON   {if(each_symboltable[$2]!=NULL){
+DoStatement             : DO Statement WHILE ONB Expression CNB SEMICOLON   {if(strcmp(each_symrec[$5].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$2]);
                                                                                 symboltables.push_back(each_symboltable[$2]);
                                                                                 each_symboltable[$2] = NULL;
-                                                                                $$ = $2;
-                                                                                }
-                                                                            }
+                                                                                $$ = $2;}
                         ;
-ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(each_symboltable[$6]!=NULL){
-                                                                                pop_global(each_symboltable[$6]);
+ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {pop_global(each_symboltable[$6]);
                                                                                 symboltables.push_back(each_symboltable[$6]);
                                                                                 each_symboltable[$6] = NULL;
-                                                                                $$ = $6;
-                                                                                }
-                                                                            }      
-                        | FOR ONB ForInit SEMICOLON SEMICOLON CNB Statement {if(each_symboltable[$3]!=NULL){
-                                                                                pop_global(each_symboltable[$3]);
+                                                                                $$ = $6;}      
+                        | FOR ONB ForInit SEMICOLON SEMICOLON CNB Statement {pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 each_symboltable[$3] = NULL;
-                                                                                $$ = $3;
-                                                                                }
-                                                                            }
-                        | FOR ONB SEMICOLON Expression SEMICOLON CNB Statement  {if(each_symboltable[$7]!=NULL){
+                                                                                $$ = $3;}
+                        | FOR ONB SEMICOLON Expression SEMICOLON CNB Statement  {if(strcmp(each_symrec[$4].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$7]);
                                                                                 symboltables.push_back(each_symboltable[$7]);
                                                                                 each_symboltable[$7] = NULL;
-                                                                                $$ = $7;
-                                                                                }
-                                                                                }
-                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB Statement  {if(each_symboltable[$3]!=NULL){
+                                                                                $$ = $7;}
+                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB Statement  {if(strcmp(each_symrec[$5].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 each_symboltable[$3] = NULL;
-                                                                                $$ = $3;
-                                                                                }
-                                                                            }
-                        | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB Statement   {if(each_symboltable[$7]!=NULL){
-                                                                                pop_global(each_symboltable[$7]);
+                                                                                $$ = $3;}
+                        | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB Statement   {pop_global(each_symboltable[$7]);
                                                                                 symboltables.push_back(each_symboltable[$7]);
                                                                                 each_symboltable[$7] = NULL;
-                                                                                $$ = $7;
-                                                                                }
-                                                                                }
-                        | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB Statement   {if(each_symboltable[$3]!=NULL){
-                                                                                pop_global(each_symboltable[$3]);
+                                                                                $$ = $7;}
+                        | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB Statement   {pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 each_symboltable[$3] = NULL;
-                                                                                $$ = $3;
-                                                                                }
-                                                                            }
-                        | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB Statement    {if(each_symboltable[$8]!=NULL){
+                                                                                $$ = $3;}
+                        | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB Statement    {if(strcmp(each_symrec[$4].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$8]);
                                                                                 symboltables.push_back(each_symboltable[$8]);
                                                                                 each_symboltable[$8] = NULL;
-                                                                                $$ = $8;
-                                                                                }
-                                                                                }   
-                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB Statement    {if(each_symboltable[$3]!=NULL){
+                                                                                $$ = $8;}   
+                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB Statement    {if(strcmp(each_symrec[$5].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 each_symboltable[$3] = NULL;
-                                                                                $$ = $3;
-                                                                                }
-                                                                            }
+                                                                                $$ = $3;}
                         ;
-ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    {if(each_symboltable[$6]!=NULL){
-                                                                                pop_global(each_symboltable[$6]);
+ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    {pop_global(each_symboltable[$6]);
                                                                                 symboltables.push_back(each_symboltable[$6]);
                                                                                 each_symboltable[$6] = NULL;
-                                                                                $$ = $6;
-                                                                                }
-                                                                            }
-                        | FOR ONB ForInit SEMICOLON SEMICOLON CNB StatementNoShortIf    {if(each_symboltable[$3]!=NULL){
-                                                                                pop_global(each_symboltable[$3]);
+                                                                                $$ = $6;}
+                        | FOR ONB ForInit SEMICOLON SEMICOLON CNB StatementNoShortIf    {pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 each_symboltable[$3] = NULL;
-                                                                                $$ = $3;
-                                                                                }
-                                                                            }
-                        | FOR ONB SEMICOLON Expression SEMICOLON CNB StatementNoShortIf {if(each_symboltable[$7]!=NULL){
+                                                                                $$ = $3;}
+                        | FOR ONB SEMICOLON Expression SEMICOLON CNB StatementNoShortIf {if(strcmp(each_symrec[$4].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$7]);
                                                                                 symboltables.push_back(each_symboltable[$7]);
                                                                                 each_symboltable[$7] = NULL;
-                                                                                $$ = $7;
-                                                                                }
-                                                                            }
-                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB StatementNoShortIf {if(each_symboltable[$3]!=NULL){
+                                                                                $$ = $7;}
+                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB StatementNoShortIf {if(strcmp(each_symrec[$5].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 each_symboltable[$3] = NULL;
-                                                                                $$ = $3;
-                                                                                }
-                                                                            }
-                        | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf  {if(each_symboltable[$7]!=NULL){
-                                                                                pop_global(each_symboltable[$7]);
+                                                                                $$ = $3;}
+                        | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf  {pop_global(each_symboltable[$7]);
                                                                                 symboltables.push_back(each_symboltable[$7]);
                                                                                 each_symboltable[$7] = NULL;
-                                                                                $$ = $7;
-                                                                                }
-                                                                            }
+                                                                                $$ = $7;}
                         | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf  {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
@@ -1177,20 +1127,16 @@ ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    
                                                                                 $$ = $3;
                                                                                 }
                                                                             }
-                        | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf   {if(each_symboltable[$8]!=NULL){
+                        | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf   {if(strcmp(each_symrec[$4].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$8]);
                                                                                 symboltables.push_back(each_symboltable[$8]);
                                                                                 each_symboltable[$8] = NULL;
-                                                                                $$ = $8;
-                                                                                }
-                                                                            }
-                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf   {if(each_symboltable[$3]!=NULL){
+                                                                                $$ = $8;}
+                        | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf   {if(strcmp(each_symrec[$5].datatype,"boolean")) yyerror("Expression doesn't evalute to boolean.");
                                                                                 pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 each_symboltable[$3] = NULL;
-                                                                                $$ = $3;
-                                                                                }
-                                                                            }
+                                                                                $$ = $3;}
                         ;
 ForInit                 : StatementExpressionList           {$$ = $1;}
                         | LocalVariableDeclaration          {$$ = $1;}
