@@ -95,17 +95,17 @@ nlist* pglobal_tail = pglobal;
 nlist* global_tail = Global;
 map<string, int> types;
 map<int, string> codes;
-map<int, sstring> thecode;
+map<int, string> thecode;
 map<int, string> exptypes;
 
 void out(nlist* t){
     
     nlist* temp = t;
     while(temp!=NULL){
-        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << endl;
+        cout << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << "\n";
         temp = temp->next;
     }
-    cout << endl;
+    cout << "\n";
 
     return ;
 
@@ -367,26 +367,27 @@ string gen_label() {return "L"+to_string(label++) ;}
 
 void gen_exp_types (int a, int b, int r, char *op){
     string v= gen_var(),extra;
-    if(!strcmp(op,"concatenate")) { fout << "\t" << v << ":= " << codes[a] << " "<<op<<" "<< codes[b]<<endl; exptypes[r] = "String";}
+    thecode[r] = thecode[a] + thecode[b];
+    if(!strcmp(op,"concatenate")) { thecode[r] += "\t" + v + ":= " + codes[a] + " " + op + " " + codes[b] + "\n"; exptypes[r] = "String";}
     else if(types2.find(exptypes[a])!=types2.end()){
         if(types2.find(exptypes[b])!=types2.end()) {
-            fout << "\t" << v << ":= " << codes[a] << " "<<op<<"int "<< codes[b]<<endl;
+            thecode[r] += "\t" + v + ":= " + codes[a] + " "+op+"int "+ codes[b]+"\n";
             exptypes[r] = "int";
         }
         else { extra = gen_var();
-            fout << "\t" << extra << " := cast_to_float "<< codes[a] <<endl;
-            fout << "\t" << v << ":= " << extra << " "<<op<<"float "<< codes[b]<<endl;
+            thecode[r] += "\t" + extra + " := cast_to_float "+ codes[a] +"\n";
+            thecode[r] += "\t" + v + ":= " + extra + " "+op+"float "+ codes[b]+"\n";
             exptypes[r] = "float";
         }
     }
     else{
         if(types2.find(exptypes[b])!=types2.end()) { extra = gen_var();
-            fout << "\t" << extra << " := cast_to_float "<< codes[b] <<endl;
-            fout << "\t" << v << ":= " << extra << " "<<op<<"float "<< codes[a]<<endl;
+            thecode[r] += "\t" + extra + " := cast_to_float "+ codes[b] +"\n";
+            thecode[r] += "\t" + v + ":= " + extra + " "+op+"float "+ codes[a]+"\n";
             exptypes[r] = "float";
         }
         else { extra = gen_var();
-            fout << "\t" << v << ":= " << codes[a] << " "<<op<<"float "<< codes[b]<<endl;
+            thecode[r] += "\t" + v + ":= " + codes[a] + " "+op+"float "+ codes[b]+"\n";
             exptypes[r] = "float";
         }
     }
@@ -471,7 +472,8 @@ void mergep(nlist* &n1, nlist* n2){
 START                   : CompilationUnit              {if(each_symboltable[$1]!=NULL){pop_global(each_symboltable[$1]);
                                                         symboltables.push_back(each_symboltable[$1]);
                                                         each_symboltable[$1] = NULL;
-                                                        $$ = $1;}}          
+                                                        $$ = $1;}
+                                                        fout << "\tEndProgram";}          
                         ;                       
 
 CompilationUnit         : %empty                    {$$ = node;
@@ -507,7 +509,7 @@ SingleTypeImportDeclaration : IMPORT Name SEMICOLON                 {$$ = node;
                                                                     for(int i=0; i<k.size(); i++){
                                                                         temp += k[i];
                                                                         if(k[i]=='.') temp = "";
-                                                                    }
+                                                                    } 
                                                                     nt[$2]->val = const_cast<char*>(temp.c_str());
                                                                     each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 4, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);}  
@@ -639,6 +641,11 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                 else yyerror("Class already exists.");
                                                                                 each_symboltable[$2] = NULL;
                                                                                 }
+                                                                                list* temp = nt[$2];
+                                                                                while(temp){
+                                                                                    fout << codes[$1] << "." << temp->val;
+                                                                                    temp = temp->next;
+                                                                                }
                                                                             } 
                         | ClassHeader Super ClassBody                       {$$ = $1;
                                                                             pop_pglobal(each_symboltable[$2]);
@@ -654,16 +661,24 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                             symboltables.push_back(each_symboltable[$3]);
                                                                             parents[each_symboltable[$1]->info.name] = nt[$2]->val;
                                                                             each_symboltable[$2] = NULL;
-                                                                            each_symboltable[$3] = NULL;}
+                                                                            each_symboltable[$3] = NULL;
+                                                                            list* temp = nt[$3];
+                                                                                while(temp){
+                                                                                    fout << codes[$1] << "." << temp->val;
+                                                                                    temp = temp->next;
+                                                                                }
+                                                                            }
                         ;
 ClassHeader             : CLASS IDENTIFIER                              {$$ = node;
                                                                         node++;
                                                                         each_symboltable[$$] = create_st(create_list($2, 0),create_list($1, 0), yylineno, 2, 0, NULL, true);
-                                                                        push_global(each_symboltable[$$]);}
+                                                                        push_global(each_symboltable[$$]);
+                                                                        codes[$$] = $2;}
                         | Modifiers CLASS IDENTIFIER                    {$$ = node;
                                                                         node++;
                                                                         each_symboltable[$$] = create_st(create_list($3, 0),create_list($2, 0), yylineno, 2, 0, NULL, $1);
-                                                                        push_global(each_symboltable[$$]);}
+                                                                        push_global(each_symboltable[$$]);
+                                                                        codes[$$] = $3;}
                         ;
 Super                   : EXTENDS ClassType                             {$$ = node;
                                                                         node++;
@@ -680,8 +695,13 @@ ClassBody               : OCB CCB                   {$$ = node;
                                                     each_symboltable[$$] = NULL;}
                         | OCB ClassBodyDeclarations CCB     {$$ = $2;}             
                         ;
-ClassBodyDeclarations   : ClassBodyDeclaration      {$$ = $1;}
-                        | ClassBodyDeclarations ClassBodyDeclaration    {$$ = $1;}
+ClassBodyDeclarations   : ClassBodyDeclaration      {$$ = $1;
+                                                     nt[$$] = create_list(strdup(thecode[$$].c_str()),0 );
+                                                    }
+                        | ClassBodyDeclarations ClassBodyDeclaration    {$$ = $1;
+                                                                            nt[$2] = create_list(strdup(thecode[$2].c_str()),0 );
+                                                                            merge(nt[$$],nt[$2]);
+                                                                        }
                         ;
 ClassBodyDeclaration    : ClassMemberDeclaration    {$$ = $1;}
                         | StaticInitializer         {$$ = $1;}
@@ -700,65 +720,85 @@ FieldDeclaration        : Type VariableDeclarators SEMICOLON        {
                                                                     each_symboltable[$$] = create_st(nt[$3], nt[$2], yylineno, 1, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);  }
                         ;
-VariableDeclarators     : VariableDeclarator                            {$$ = $1;}
+VariableDeclarators     : VariableDeclarator                            {$$ = $1; thecode[$$] = codes[$1];}
                         | VariableDeclarators COMMA VariableDeclarator  {merge(nt[$1],nt[$3]);
-                                                                        $$ = $1;}
+                                                                        $$ = $1;
+                                                                       // thecode[$$] = thecode[$1]+ "," + codes[$3]; cout << thecode[$$];
+                                                                        }
                         ;
 VariableDeclarator      : VariableDeclaratorId                          {$$ = $1;}
                         | VariableDeclaratorId EQ VariableInitializer   {$$ = $1;}
                         ;
 VariableDeclaratorId    : IDENTIFIER                                    {$$ = node;
                                                                         node++;
-                                                                        nt[$$] = create_list($1, 0);}
+                                                                        nt[$$] = create_list($1, 0);
+                                                                        codes[$$] = $1;}
                         | VariableDeclaratorId OSB CSB                  {nt[$1]->dim++;
                                                                         $$ = $1;}
                         ;
-VariableInitializer     : Expression
-                        | ArrayInitializer
+VariableInitializer     : Expression                                    {$$ = $1;}
+                        | ArrayInitializer                              {$$ = $1;}
                         ;
-MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;}
+MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;
+                                                                        string sout ;
+                                                                        sout = codes[$1]+":\n";
+                                                                        sout += thecode[$1] + thecode[$2];
+                                                                        thecode[$$] = sout + "\tEndFunction\n";
+                                                                    }
                         ;
 MethodHeader            : Type MethodDeclarator                     {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$2];
-                                                                    if(each_symboltable[$2]) $$ = $2;}          
+                                                                    if(each_symboltable[$2]) $$ = $2;
+                                                                    //search in global_tail and pglobal first if not yet declared
+                                                                    codes[$$] = codes[$2]; thecode[$$] = thecode[$2]; }          
                         | Modifiers Type MethodDeclarator           {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$3], nt[$1], yylineno, 3, 0, NULL, $1);
+                                                                    each_symboltable[$$] = create_st(nt[$3], nt[$2], yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$3];
-                                                                    if(each_symboltable[$3]!=NULL) $$ = $3;}
+                                                                    if(each_symboltable[$3]!=NULL) $$ = $3;
+                                                                    codes[$$] = codes[$3]; thecode[$$] = thecode[$3];}
                         | VOID MethodDeclarator                     {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], create_list($1, 0), yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$2];
-                                                                    if(each_symboltable[$2]) $$ = $2;}
+                                                                    if(each_symboltable[$2]) $$ = $2;
+                                                                    codes[$$] = codes[$2]; thecode[$$]= thecode[$2];}
                         | Modifiers VOID MethodDeclarator           {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$3], create_list($2, 0), yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
                                                                     each_symboltable[$$]->info.args = args[$3];
-                                                                    if(each_symboltable[$3]!=NULL) $$ = $3;}
+                                                                    if(each_symboltable[$3]!=NULL) $$ = $3;
+                                                                    codes[$$] = codes[$3]; thecode[$$] = thecode[$3];}
                         ;
-MethodDeclarator        : SingleName ONB CNB                            {$$ = $1;}
-                        | SingleName ONB FormalParameterList CNB        {$$ = $3;
+MethodDeclarator        : SingleName ONB CNB                            {$$ = $1; codes[$$] = codes[$1]; thecode[$$] = "\tparams: \n";}
+                        | SingleName ONB FormalParameterList CNB        {$$ = $3; 
                                                                         list* k = nt[$3];
                                                                         nt[$$] = nt[$1];
-                                                                        args[$$] = k;}
-                        | MethodDeclarator OSB CSB                      {$$ = $1;}
+                                                                        args[$$] = k;
+                                                                        codes[$$] = codes[$1];
+                                                                        thecode[$$] = "\tparams: " + thecode[$3]; 
+                                                                        thecode[$$] += "\n";
+                                                                        }
                         ;
-FormalParameterList     : FormalParameter                               {$$ = $1;}
+FormalParameterList     : FormalParameter                               {$$ = $1; thecode[$$] = codes[$1];}
                         | FormalParameterList COMMA FormalParameter     {merge(nt[$1],nt[$3]);
-                                                                        $$ = $1;}
+                                                                        thecode[$$] = thecode[$1] + "," + codes[$3]; 
+                                                                        $$ = $1;
+                                                                        }
                         ;
 FormalParameter         : Type VariableDeclaratorId                 {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 3, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);
-                                                                    nt[$$] = nt[$1];}            
+                                                                    nt[$$] = nt[$1];
+                                                                    codes[$$] = codes[$2]; 
+                                                                    }            
                         ;
 MethodBody              : Block                     {$$ = $1;}
                         | SEMICOLON                 {$$ = node;
@@ -864,11 +904,16 @@ Block                   : OCB CCB                                           {$$ 
                                                                                 each_symboltable[$2] = NULL;
                                                                                 $$ = $2;
                                                                                 }
+                                                                                thecode[$$] = thecode[$2];
                                                                             }
                         ;
 BlockStatements         : BlockStatement                                    {$$ = $1;}
                         | BlockStatements BlockStatement                    {if(each_symboltable[$1]!=NULL) $$ = $1;
-                                                                            else $$ = $2;}
+                                                                            else $$ = $2;
+                                                                            string sout;
+                                                                            sout = thecode[$1] + thecode[$2];
+                                                                            thecode[$$] = sout; // cout << thecode[$$] <<endl;
+                                                                            }
                         ;
 BlockStatement          : LocalVariableDeclarationStatement                 {$$ = $1;}
                         | Statement                                         {$$ = $1;}               
@@ -878,7 +923,8 @@ LocalVariableDeclarationStatement   : LocalVariableDeclaration SEMICOLON    {$$ 
 LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL, true);
-                                                                    push_global(each_symboltable[$$]);  }   
+                                                                    push_global(each_symboltable[$$]);  
+                                                                    }   
                             ;
 Statement               : StatementWithoutTrailingSubstatement      {$$ = $1;}   
                         | LabeledStatement                          {$$ = $1;}
@@ -929,6 +975,15 @@ IfThenStatement         : IF ONB Expression CNB Statement                   {if(
                                                                                 each_symboltable[$5] = NULL;
                                                                                 $$ = $5;
                                                                                 }
+                                                                                // cout << thecode[$5];  cout << thecode[$3];
+                                                                                if(exptypes[$3]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                sout = thecode[$3];
+                                                                                string cont = gen_label();
+                                                                                sout += "\tifFalse " + codes[$3] + " goto "+ cont +"\n";
+                                                                                sout += thecode[$5];
+                                                                                sout += cont +":\n";
+                                                                                thecode[$$] = sout ;
                                                                             }
                         ;
 IfThenElseStatement     : IF ONB Expression CNB StatementNoShortIf ELSE Statement   {if(each_symboltable[$5]!=NULL){
@@ -937,6 +992,15 @@ IfThenElseStatement     : IF ONB Expression CNB StatementNoShortIf ELSE Statemen
                                                                                 each_symboltable[$5] = NULL;
                                                                                 $$ = $5;
                                                                                 }
+                                                                                if(exptypes[$3]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                sout = thecode[$3];
+                                                                                string t= gen_label(), f= gen_label();
+                                                                                sout += "\tif "+ codes[$3] + " goto " + t +"\n";
+                                                                                sout += thecode[$7] + "\tgoto "+f +"\n";
+                                                                                sout += t +":\n"+ thecode[$5];
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout ;
                                                                             }
                         ;
 IfThenElseStatementNoShortIf    : IF ONB Expression CNB StatementNoShortIf ELSE StatementNoShortIf  {if(each_symboltable[$5]!=NULL){
@@ -945,6 +1009,15 @@ IfThenElseStatementNoShortIf    : IF ONB Expression CNB StatementNoShortIf ELSE 
                                                                                 each_symboltable[$5] = NULL;
                                                                                 $$ = $5;
                                                                                 }
+                                                                                if(exptypes[$3]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                sout = thecode[$3];
+                                                                                string t= gen_label(), f= gen_label();
+                                                                                sout += "\tif "+ codes[$3] + " goto " + t +"\n";
+                                                                                sout += thecode[$7] + "\n\tgoto "+f +"\n";
+                                                                                sout += t +":\n"+ thecode[$5];
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                                 ;
 SwitchStatement         : SWITCH ONB Expression CNB SwitchBlock     {$$ = $5;}
@@ -991,6 +1064,14 @@ WhileStatement          : WHILE ONB Expression CNB Statement                {if(
                                                                                 each_symboltable[$5] = NULL;
                                                                                 $$ = $5;
                                                                                 }
+                                                                                if(exptypes[$3]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                sout = thecode[$3];
+                                                                                string t= gen_label(), f= gen_label();
+                                                                                sout += t + ":\n\tifFalse "+ codes[$3] + " goto " + f +"\n";
+                                                                                sout += thecode[$5] + thecode[$3] + "\tgoto " + t +"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                             }   
                         ;
 WhileStatementNoShortIf : WHILE ONB Expression CNB StatementNoShortIf       {if(each_symboltable[$5]!=NULL){
@@ -999,6 +1080,14 @@ WhileStatementNoShortIf : WHILE ONB Expression CNB StatementNoShortIf       {if(
                                                                                 each_symboltable[$5] = NULL;
                                                                                 $$ = $5;
                                                                                 }
+                                                                                if(exptypes[$3]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                sout = thecode[$3];
+                                                                                string t= gen_label(), f= gen_label();
+                                                                                sout += t + ":\n\tifFalse "+ codes[$3] + " goto " + f +"\n";
+                                                                                sout += thecode[$5] + thecode[$3] + "\tgoto " + t +"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         ;
 DoStatement             : DO Statement WHILE ONB Expression CNB SEMICOLON   {if(each_symboltable[$2]!=NULL){
@@ -1007,6 +1096,13 @@ DoStatement             : DO Statement WHILE ONB Expression CNB SEMICOLON   {if(
                                                                                 each_symboltable[$2] = NULL;
                                                                                 $$ = $2;
                                                                                 }
+                                                                                if(exptypes[$5]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t= gen_label();
+                                                                                sout = t + ":\n";
+                                                                                sout += thecode[$2] + thecode[$5];
+                                                                                sout += "\tif "+ codes[$5] +" goto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         ;
 ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(each_symboltable[$6]!=NULL){
@@ -1015,6 +1111,10 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 each_symboltable[$6] = NULL;
                                                                                 $$ = $6;
                                                                                 }
+                                                                                string sout;
+                                                                                string t = gen_label();
+                                                                                sout = t+":\n" + thecode[$6] +"\tgoto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                             }      
                         | FOR ONB ForInit SEMICOLON SEMICOLON CNB Statement {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
@@ -1022,6 +1122,11 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 each_symboltable[$3] = NULL;
                                                                                 $$ = $3;
                                                                                 }
+                                                                                string sout;
+                                                                                string t = gen_label();
+                                                                                sout= thecode[$3];
+                                                                                sout += t+":\n" + thecode[$7] +"\tgoto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB SEMICOLON Expression SEMICOLON CNB Statement  {if(each_symboltable[$7]!=NULL){
                                                                                 pop_global(each_symboltable[$7]);
@@ -1029,6 +1134,14 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 each_symboltable[$7] = NULL;
                                                                                 $$ = $7;
                                                                                 }
+                                                                                if(exptypes[$4]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t = gen_label(), f= gen_label();
+                                                                                sout= thecode[$4];
+                                                                                sout += t+":\n\tifFalse "+ codes[$4] + " goto "+ f+ "\n"; 
+                                                                                sout+= thecode[$7] + thecode[$4] +"\tgoto "+ t+"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                                 }
                         | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB Statement  {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
@@ -1036,6 +1149,15 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 each_symboltable[$3] = NULL;
                                                                                 $$ = $3;
                                                                                 }
+                                                                                if(exptypes[$5]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t = gen_label(), f= gen_label();
+                                                                                sout = thecode[$3];
+                                                                                sout+= thecode[$5];
+                                                                                sout += t+":\n\tifFalse "+ codes[$5] + " goto "+ f+ "\n"; 
+                                                                                sout+= thecode[$8] + thecode[$5] +"\tgoto "+ t+"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB Statement   {if(each_symboltable[$7]!=NULL){
                                                                                 pop_global(each_symboltable[$7]);
@@ -1043,6 +1165,11 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 each_symboltable[$7] = NULL;
                                                                                 $$ = $7;
                                                                                 }
+                                                                                string sout;
+                                                                                string t = gen_label();
+                                                                                sout = t+":\n"; 
+                                                                                sout+= thecode[$7] + thecode[$5] +"\tgoto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                                 }
                         | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB Statement   {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
@@ -1050,6 +1177,12 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 each_symboltable[$3] = NULL;
                                                                                 $$ = $3;
                                                                                 }
+                                                                                string sout;
+                                                                                string t = gen_label();
+                                                                                sout = thecode[$3];
+                                                                                sout += t+":\n"; 
+                                                                                sout+= thecode[$8] + thecode[$6] +"\tgoto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB Statement    {if(each_symboltable[$8]!=NULL){
                                                                                 pop_global(each_symboltable[$8]);
@@ -1057,6 +1190,14 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 each_symboltable[$8] = NULL;
                                                                                 $$ = $8;
                                                                                 }
+                                                                                if(exptypes[$4]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t = gen_label(), f= gen_label();
+                                                                                sout= thecode[$4];
+                                                                                sout += t+":\n\tifFalse "+ codes[$4] + " goto "+ f+ "\n"; 
+                                                                                sout+= thecode[$8] + thecode[$6]+ thecode[$4] +"\tgoto "+ t+"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                                 }   
                         | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB Statement    {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
@@ -1064,6 +1205,14 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 each_symboltable[$3] = NULL;
                                                                                 $$ = $3;
                                                                                 }
+                                                                                if(exptypes[$5]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t = gen_label(), f= gen_label();
+                                                                                sout= thecode[$3]+ thecode[$5];
+                                                                                sout += t+":\n\tifFalse "+ codes[$5] + " goto "+ f+ "\n"; 
+                                                                                sout+= thecode[$9] + thecode[$7]+ thecode[$5] +"\tgoto "+ t+"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         ;
 ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    {if(each_symboltable[$6]!=NULL){
@@ -1072,6 +1221,10 @@ ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    
                                                                                 each_symboltable[$6] = NULL;
                                                                                 $$ = $6;
                                                                                 }
+                                                                                string sout;
+                                                                                string t = gen_label();
+                                                                                sout = t+":\n" + thecode[$6] +"\tgoto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB ForInit SEMICOLON SEMICOLON CNB StatementNoShortIf    {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
@@ -1079,6 +1232,11 @@ ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    
                                                                                 each_symboltable[$3] = NULL;
                                                                                 $$ = $3;
                                                                                 }
+                                                                                string sout;
+                                                                                string t = gen_label();
+                                                                                sout= thecode[$3];
+                                                                                sout += t+":\n" + thecode[$7] +"\tgoto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB SEMICOLON Expression SEMICOLON CNB StatementNoShortIf {if(each_symboltable[$7]!=NULL){
                                                                                 pop_global(each_symboltable[$7]);
@@ -1086,6 +1244,14 @@ ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    
                                                                                 each_symboltable[$7] = NULL;
                                                                                 $$ = $7;
                                                                                 }
+                                                                                if(exptypes[$4]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t = gen_label(), f= gen_label();
+                                                                                sout= thecode[$4];
+                                                                                sout += t+":\n\tifFalse "+ codes[$4] + " goto "+ f+ "\n"; 
+                                                                                sout+= thecode[$7] + thecode[$4] +"\tgoto "+ t+"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB ForInit SEMICOLON Expression SEMICOLON CNB StatementNoShortIf {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
@@ -1093,6 +1259,15 @@ ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    
                                                                                 each_symboltable[$3] = NULL;
                                                                                 $$ = $3;
                                                                                 }
+                                                                                if(exptypes[$5]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t = gen_label(), f= gen_label();
+                                                                                sout = thecode[$3];
+                                                                                sout+= thecode[$5];
+                                                                                sout += t+":\n\tifFalse "+ codes[$5] + " goto "+ f+ "\n"; 
+                                                                                sout+= thecode[$8] + thecode[$5] +"\tgoto "+ t+"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf  {if(each_symboltable[$7]!=NULL){
                                                                                 pop_global(each_symboltable[$7]);
@@ -1100,6 +1275,11 @@ ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    
                                                                                 each_symboltable[$7] = NULL;
                                                                                 $$ = $7;
                                                                                 }
+                                                                                string sout;
+                                                                                string t = gen_label();
+                                                                                sout = t+":\n"; 
+                                                                                sout+= thecode[$7] + thecode[$5] +"\tgoto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB ForInit SEMICOLON SEMICOLON ForUpdate CNB StatementNoShortIf  {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
@@ -1107,6 +1287,12 @@ ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    
                                                                                 each_symboltable[$3] = NULL;
                                                                                 $$ = $3;
                                                                                 }
+                                                                                string sout;
+                                                                                string t = gen_label();
+                                                                                sout = thecode[$3];
+                                                                                sout += t+":\n"; 
+                                                                                sout+= thecode[$8] + thecode[$6] +"\tgoto "+ t+"\n";
+                                                                                thecode[$$] = sout;
                                                                             }
                         | FOR ONB SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf   {if(each_symboltable[$8]!=NULL){
                                                                                 pop_global(each_symboltable[$8]);
@@ -1114,14 +1300,30 @@ ForStatementNoShortIf   : FOR ONB SEMICOLON SEMICOLON CNB StatementNoShortIf    
                                                                                 each_symboltable[$8] = NULL;
                                                                                 $$ = $8;
                                                                                 }
-                                                                            }
+                                                                                if(exptypes[$4]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t = gen_label(), f= gen_label();
+                                                                                sout= thecode[$4];
+                                                                                sout += t+":\n\tifFalse "+ codes[$4] + " goto "+ f+ "\n"; 
+                                                                                sout+= thecode[$8] + thecode[$6]+ thecode[$4] +"\tgoto "+ t+"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
+                                                                                }  
                         | FOR ONB ForInit SEMICOLON Expression SEMICOLON ForUpdate CNB StatementNoShortIf   {if(each_symboltable[$3]!=NULL){
                                                                                 pop_global(each_symboltable[$3]);
                                                                                 symboltables.push_back(each_symboltable[$3]);
                                                                                 each_symboltable[$3] = NULL;
                                                                                 $$ = $3;
                                                                                 }
-                                                                            }
+                                                                                if(exptypes[$5]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                string sout;
+                                                                                string t = gen_label(), f= gen_label();
+                                                                                sout= thecode[$3]+ thecode[$5];
+                                                                                sout += t+":\n\tifFalse "+ codes[$5] + " goto "+ f+ "\n"; 
+                                                                                sout+= thecode[$9] + thecode[$7]+ thecode[$5] +"\tgoto "+ t+"\n";
+                                                                                sout += f +":\n";
+                                                                                thecode[$$] = sout;
+                                                                                }  
                         ;
 ForInit                 : StatementExpressionList           {$$ = $1;}
                         | LocalVariableDeclaration          {$$ = $1;}
@@ -1129,11 +1331,12 @@ ForInit                 : StatementExpressionList           {$$ = $1;}
 ForUpdate               : StatementExpressionList           {$$ = $1;}
                         ;
 StatementExpressionList : StatementExpression               {$$ = $1;}
-                        | StatementExpressionList COMMA StatementExpression         {$$ = $1;}
+                        | StatementExpressionList COMMA StatementExpression         {$$ = $1;   thecode[$$] = thecode[$3];}
                         ;
 BreakStatement          : BREAK SEMICOLON                           {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;}              
+                                                                    each_symboltable[$$] = NULL;
+                                                                    }              
                         | BREAK IDENTIFIER  SEMICOLON               {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;} 
@@ -1147,8 +1350,14 @@ ContinueStatement       : CONTINUE SEMICOLON                        {$$ = node;
                         ;
 ReturnStatement         : RETURN SEMICOLON                          {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
-                        | RETURN Expression SEMICOLON               {$$ = $2;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    thecode[$$] = "\treturn\n";} 
+                        | RETURN Expression SEMICOLON               {$$ = $2;
+                                                                        string sout;
+                                                                        sout = thecode[$2];
+                                                                        sout += "\treturn "+ codes[$2] + "\n";
+                                                                        thecode[$$] = sout;
+                                                                    } 
                         ;
 ThrowStatement          : THROW Expression SEMICOLON                {$$ = $2;} 
                         ;
@@ -1238,11 +1447,25 @@ MethodInvocation        : Name ONB CNB                              {$$ = node;
                         ;
 ArrayAccess             : Name OSB Expression CSB                   {
                                                                         $$=node; node++;
-                                                                        q = find_in_list(global_tail,codes[$1]);
+                                                                        nlist* q = find_in_list(global_tail,nt[$1]->val);
+                                                                        if(!q) q= find_in_list(pglobal, nt[$1]->val);
+                                                                        if(!q) yyerror("variable not declared");
                                                                         if(types2.find(exptypes[$3]) == types2.end()) yyerror("index is not of type int");
-                                                                        codes[$$] = codes[$1];
+                                                                        string v = gen_var();
+                                                                        thecode[$$] = thecode[$3] ;
+                                                                        thecode[$$] += "\t" + v + " := "+ nt[$1]->val +" + "+codes[$3]+"\n";
+                                                                        codes[$$] = "*"+v; 
+                                                                        exptypes[$$] = q->info.datatype;
                                                                     }
-                        | PrimaryNoNewArray OSB Expression CSB      
+                        | PrimaryNoNewArray OSB Expression CSB      {
+                                                                        $$=node; node++;
+                                                                        if(types2.find(exptypes[$3]) == types2.end()) yyerror("index is not of type int");
+                                                                        string v = gen_var();
+                                                                        thecode[$$] = thecode[$1] + thecode[$3] ;
+                                                                        thecode[$$] += "\t" + v + " := "+ codes[$1] +"+ "+codes[$3]+"\n";
+                                                                        codes[$$] = "*"+v; 
+                                                                        exptypes[$$] = exptypes[$1];
+                                                                    }
                         ;
 PostfixExpression       : Primary                                   {$$=$1;}
                         | Name                                      {$$=$1;
@@ -1256,31 +1479,39 @@ PostfixExpression       : Primary                                   {$$=$1;}
 PostIncrementExpression : PostfixExpression INC                     {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1]) != types1.end()){
                                                                     string v= gen_var();
-                                                                    fout<<"\t"<<v<<":="<<codes[$1]<<endl;
-                                                                    fout<<"\t"<<codes[$1]<<":= "<<codes[$1]<<" + 1"<<endl;
-                                                                        codes[$$] = v;
-                                                                        exptypes[$$] = exptypes[$1];
+                                                                    thecode[$$] = thecode[$1] ;
+                                                                    thecode[$$]+= "\t"+v+" := "+codes[$1]+"\n";
+                                                                    if(types2.find(exptypes[$1]) != types2.end()){
+                                                                    thecode[$$]+= "\t"+codes[$1]+":= "+codes[$1]+" +int 1"+"\n";
+                                                                    }
+                                                                    else if(types3.find(exptypes[$1]) != types3.end()){
+                                                                    thecode[$$]+= "\t"+codes[$1]+":= "+codes[$1]+" +float 1"+"\n";
                                                                     }
                                                                     else{
                                                                         yyerror("incompatible operand types for ++");
                                                                     }
+                                                                        codes[$$] = v;
+                                                                        exptypes[$$] = exptypes[$1];
                                                                     } 
                         ;   
 PostDecrementExpression : PostfixExpression DEC                     {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$1]) != types1.end()){
                                                                     string v= gen_var();
-                                                                    fout<<"\t"<<v<<":="<<codes[$1]<<endl;
-                                                                    fout<<"\t"<<codes[$1]<<":= "<<codes[$1]<<" - 1"<<endl;
-                                                                        codes[$$] = v;
-                                                                        exptypes[$$] = exptypes[$1];
-                                                                        }
-                                                                        else{
+                                                                    thecode[$$] = thecode[$1] ;
+                                                                    thecode[$$]+= "\t"+v+" := "+codes[$1]+"\n";
+                                                                    if(types2.find(exptypes[$1]) != types2.end()){
+                                                                    thecode[$$]+= "\t"+codes[$1]+":= "+codes[$1]+" -int 1"+"\n";
+                                                                    }
+                                                                    else if(types3.find(exptypes[$1]) != types3.end()){
+                                                                    thecode[$$]+= "\t"+codes[$1]+":= "+codes[$1]+" -float 1"+"\n";
+                                                                    }
+                                                                    else{
                                                                         yyerror("incompatible operand types for --");
                                                                     }
+                                                                        codes[$$] = v;
+                                                                        exptypes[$$] = exptypes[$1];
                                                                     } 
                         ;
 UnaryExpression         : PreIncrementExpression                    {$$ = $1;}
@@ -1296,7 +1527,8 @@ UnaryExpression         : PreIncrementExpression                    {$$ = $1;}
                         | MINUS UnaryExpression                     {   $$ = node; node++;
                                                                         if(types1.find(exptypes[$2]) != types1.end()){
                                                                         string v= gen_var();
-                                                                        fout << "\t"<<v<<":= "<<" -"<<codes[$2]<<endl;
+                                                                        thecode[$$] = thecode[$2] ;
+                                                                        thecode[$$] += "\t"+v+":= "+" -"+codes[$2]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = exptypes[$2];
                                                                         if(exptypes[$2]=="long"||exptypes[$2]=="char") exptypes[$$] = "int";
@@ -1308,47 +1540,58 @@ UnaryExpression         : PreIncrementExpression                    {$$ = $1;}
 PreIncrementExpression  : INC UnaryExpression                       {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$2]) != types1.end()){
-                                                                        fout << "\t"<<codes[$2]<<":= "<<codes[$2]<<" + 1"<<endl;
-                                                                        codes[$$] = codes[$2];
-                                                                        exptypes[$$] = exptypes[$2];
+                                                                    thecode[$$] = thecode[$2] ;
+                                                                    if(types2.find(exptypes[$2]) != types2.end()){
+                                                                        thecode[$$] += "\t"+codes[$2]+":= "+codes[$2]+" +int 1"+"\n";
+                                                                    } 
+                                                                    else if(types3.find(exptypes[$2]) != types3.end()){
+                                                                        thecode[$$] += "\t"+codes[$2]+":= "+codes[$2]+" +float 1"+"\n";
                                                                     } 
                                                                     else yyerror("incompatible operand type for ++");
+                                                                        codes[$$] = codes[$2];
+                                                                        exptypes[$$] = exptypes[$2];
                                                                     } 
                         ;
 PreDecrementExpression  : DEC UnaryExpression                       {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    if(types1.find(exptypes[$2]) != types1.end()){
-                                                                        fout << "\t"<<codes[$2]<<":= "<<codes[$2]<<" - 1"<<endl;
+                                                                    thecode[$$] = thecode[$2] ;
+                                                                    if(types2.find(exptypes[$2]) != types2.end()){
+                                                                        thecode[$$] += "\t"+codes[$2]+":= "+codes[$2]+" -int 1"+"\n";
+                                                                    } 
+                                                                    else if(types3.find(exptypes[$2]) != types3.end()){
+                                                                        thecode[$$] += "\t"+codes[$2]+":= "+codes[$2]+" -float 1"+"\n";
+                                                                    } 
+                                                                    else yyerror("incompatible operand type for --");
                                                                         codes[$$] = codes[$2];
                                                                         exptypes[$$] = exptypes[$2];
-                                                                    }
-                                                                    else yyerror("incompatible operand type for --");
                                                                     } 
                         ;
 UnaryExpressionNotPlusMinus : PostfixExpression         {$$ = $1;}
                             | NEG UnaryExpression       {   $$ = node; node++;
                                                             if(types2.find(exptypes[$2]) == types2.end()) yyerror("incompatible operand type");
                                                                         string v= gen_var();
-                                                                        fout << "\t"<<v<<":= "<<"~ "<<codes[$2]<<endl;
+                                                                        thecode[$$] = thecode[$2] ;
+                                                                        thecode[$$] += "\t"+v+":= "+"~ "+codes[$2]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = exptypes[$2];
                                                                         }
                             | NOT UnaryExpression       {   $$ = node; node++;
                                                             if(exptypes[$2]!= "boolean") yyerror("incompatible operand type");
                                                                         string v= gen_var();
-                                                                        fout << "\t"<<v<<":= "<<"! "<<codes[$2]<<endl;
+                                                                        thecode[$$] = thecode[$2] ;
+                                                                        thecode[$$] += "\t"+v+":= "+"! "+codes[$2]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = exptypes[$2];
                                                                         }
                             | CastExpression            {$$ = $1;}
                             ;
-CastExpression          : ONB PrimitiveType CNB UnaryExpression         {   $$ = node; node++; //cout<<"cout"<<exptypes[$2]<<" 4"<<exptypes[$4];
+CastExpression          : ONB PrimitiveType CNB UnaryExpression         {   $$ = node; node++; //cout+"cout"+exptypes[$2]+" 4"+exptypes[$4];
                                                                         if(types1.find(exptypes[$2]) != types1.end()){
                                                                             if(types1.find(exptypes[$4]) != types1.end()){
                                                                         string v= gen_var();
-                                                                        fout << "\t"<<v<<":= "<<"cast_to_"<<codes[$2]<<" "<<codes[$4]<<endl;
+                                                                        thecode[$$] =  thecode[$4];
+                                                                        thecode[$$] += "\t"+v+":= "+"cast_to_"+codes[$2]+" "+codes[$4]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = exptypes[$2];
                                                                             }else yyerror("conversion not possible");
@@ -1406,7 +1649,8 @@ ShiftExpression         : AdditiveExpression                            {$$ = $1
                                                                     if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end())
                                                                         yyerror("incompatible operand types for SHIFT");
                                                                     string v= gen_var();
-                                                                    fout << "\t" << v << ":="  << codes[$1] <<" "<<$2<<" " << codes[$3]<<endl;
+                                                                    thecode[$$] = thecode[$1] + thecode[$3];
+                                                                    thecode[$$] += "\t" + v + ":="  + codes[$1] +" "+$2+" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = "int";
                                                                     } 
@@ -1418,7 +1662,8 @@ RelationalExpression    : ShiftExpression                               {$$=$1;}
                                                                     if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end())
                                                                         yyerror("incompatible operand types for relational operators");
                                                                     string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    thecode[$$] = thecode[$1] + thecode[$3];
+                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = "boolean";
                                                                     } 
@@ -1428,7 +1673,8 @@ RelationalExpression    : ShiftExpression                               {$$=$1;}
                                                                     if(types1.find(exptypes[$1]) != types1.end() || types1.find(exptypes[$3]) != types1.end()) 
                                                                         yyerror("incompatible operand types for instanceof");
                                                                     string v= gen_var();
-                                                                    fout << "\t" << v << ":=" << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    thecode[$$] = thecode[$1] + thecode[$3];
+                                                                    thecode[$$] += "\t" + v + ":=" + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = "boolean";
                                                                     } 
@@ -1440,8 +1686,9 @@ EqualityExpression      : RelationalExpression                              {$$ 
                                                                     if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end()){
                                                                         if(exptypes[$1]== "String" && exptypes[$3]== "String");
                                                                         else yyerror("incompatible operand types for ==");}
+                                                                    thecode[$$] = thecode[$1] + thecode[$3];
                                                                     string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " = " << codes[$3]<<endl;
+                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " = " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = "boolean";
                                                                     } 
@@ -1451,8 +1698,9 @@ EqualityExpression      : RelationalExpression                              {$$ 
                                                                     if(types1.find(exptypes[$1])==types1.end() || types1.find(exptypes[$3])==types1.end()){
                                                                         if(exptypes[$1]== "String" && exptypes[$3]== "String");
                                                                         else yyerror("incompatible operand types for !=");}
+                                                                    thecode[$$] = thecode[$1] + thecode[$3];
                                                                     string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = "boolean";
                                                                     } 
@@ -1461,12 +1709,12 @@ AndExpression           : EqualityExpression                        {$$ = $1;}
                         | AndExpression AND EqualityExpression      {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    exptypes[$$] = "int";
+                                                                    exptypes[$$] = "int";   thecode[$$] = thecode[$1] + thecode[$3];
                                                                     if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
                                                                         if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
                                                                         else yyerror("incompatible operand types for &");}
                                                                     string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     } 
                         ;
@@ -1474,12 +1722,12 @@ ExclusiveOrExpression   : AndExpression                             {$$ = $1;}
                         | ExclusiveOrExpression UP AndExpression    {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    exptypes[$$] = "int";
+                                                                    exptypes[$$] = "int";   thecode[$$] = thecode[$1] + thecode[$3];
                                                                     if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
                                                                         if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
                                                                         else yyerror("incompatible operand types for ^");}
                                                                     string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     } 
                         ;
@@ -1487,12 +1735,12 @@ InclusiveOrExpression   : ExclusiveOrExpression                     {$$ =$1;}
                         | InclusiveOrExpression OR ExclusiveOrExpression    {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    exptypes[$$] = "int";
+                                                                    exptypes[$$] = "int";   thecode[$$] = thecode[$1] + thecode[$3];
                                                                     if(types2.find(exptypes[$1])==types2.end() || types2.find(exptypes[$3])==types2.end()){
                                                                         if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
                                                                         else yyerror("incompatible operand types for |");}
                                                                     string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
+                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     } 
                         ;
@@ -1503,9 +1751,16 @@ ConditionalAndExpression    : InclusiveOrExpression                 {$$ = $1;}
                                                                     if(exptypes[$1]!= "boolean" || exptypes[$3]!= "boolean") 
                                                                         yyerror("incompatible operand types for &&");
                                                                     exptypes[$$] = "boolean";
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
+                                                                    string v= gen_var(),t= gen_label(), f= gen_label();
+                                                                    thecode[$$] = thecode[$1] ;
+                                                                    thecode[$$] = thecode[$$]+ "\t" + "ifFalse "+ codes[$1] +" goto "+t+"\n";
+                                                                    thecode[$$] += thecode[$3] ;
+                                                                    thecode[$$] = thecode[$$]+ "\t" + "ifFalse "+ codes[$3] +" goto "+t+"\n";
+                                                                    thecode[$$] = thecode[$$]+ "\t" + v + ":= true" +"\n";
+                                                                    thecode[$$] = thecode[$$]+ "\tgoto "+ f +"\n";
+                                                                    thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + ":= false" +"\n";
+                                                                    thecode[$$] = thecode[$$]+ f+ ":\n" ;
+                                                                    codes[$$] = v; exptypes[$$]= "boolean";
                                                                     } 
                             ;
 ConditionalOrExpression : ConditionalAndExpression                                          {$$ = $1;}
@@ -1515,18 +1770,26 @@ ConditionalOrExpression : ConditionalAndExpression                              
                                                                     if(exptypes[$1]!= "boolean" || exptypes[$3]!= "boolean")
                                                                         yyerror("incompatible operand types for ||");
                                                                     exptypes[$$] = "boolean";
-                                                                    string v= gen_var();
-                                                                    fout << "\t" << v << ":= " << codes[$1] << " "<< $2 <<" " << codes[$3]<<endl;
-                                                                    codes[$$] = v;
+                                                                    string v= gen_var(),t= gen_label(), f= gen_label();
+                                                                    thecode[$$] = thecode[$1] ;
+                                                                    thecode[$$] = thecode[$$]+"\t" + "if "+ codes[$1] +" goto "+t+"\n";
+                                                                    thecode[$$] += thecode[$3] ;
+                                                                    thecode[$$] = thecode[$$]+ "\t" + "if "+ codes[$3] +" goto "+t+"\n";
+                                                                    thecode[$$] = thecode[$$]+ "\t" + v + ":= false" +"\n";
+                                                                    thecode[$$] = thecode[$$]+ "\tgoto "+ f +"\n";
+                                                                    thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + ":= true" +"\n";
+                                                                    thecode[$$] = thecode[$$]+ f+ ":\n" ;
+                                                                    codes[$$] = v;  exptypes[$$]= "boolean";
                                                                     } 
                         ;
 ConditionalExpression   : ConditionalOrExpression                                           {$$ = $1;}
                         | ConditionalOrExpression QM Expression COLON ConditionalExpression {   string t = gen_label(), f= gen_label(), v= gen_var();
-                                                                                                fout<<"\t"<<"if "<<codes[$1]<<" goto "<<t<<endl;
-                                                                                                fout<<"\t"<<v<<":= "<<codes[$5]<<endl;
-                                                                                                fout<<"\t"<<"goto "<<f<<endl;
-                                                                                                fout<<t<<":\n\t"<<v<<":= "<<codes[$3]<<endl;
-                                                                                                fout<<f<<":\n";
+                                                                                                thecode[$$] = thecode[$1] + thecode[$3] + thecode[$5];
+                                                                                                thecode[$$] = thecode[$$]+ "\t"+"if "+codes[$1]+" goto "+t+"\n";
+                                                                                                thecode[$$] = thecode[$$]+ "\t"+v+":= "+codes[$5]+"\n";
+                                                                                                thecode[$$] = thecode[$$]+ "\t"+"goto "+f+"\n";
+                                                                                                thecode[$$] = thecode[$$]+ t+":\n\t"+v+":= "+codes[$3]+"\n";
+                                                                                                thecode[$$] = thecode[$$]+ f+":\n";
                                                                                                 $$ = node; node++;
                                                                                                 codes[$$] = v;
                                                                                                 exptypes[$$] = "int";
@@ -1535,40 +1798,42 @@ ConditionalExpression   : ConditionalOrExpression                               
 AssignmentExpression    : ConditionalExpression         {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];
+                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1]; thecode[$$] = thecode[$1];
                                                                     } 
                         | Assignment                    {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];} 
+                                                                    codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1]; thecode[$$] = thecode[$1];
+                                                                    } 
                         ;
 Assignment              : LeftHandSide Assignment_Operators AssignmentExpression    {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
+                                                                    thecode[$$] = thecode[$1] + thecode[$3];
                                                                     if(types2.find(exptypes[$1])!=types2.end() && types2.find(exptypes[$3])!=types2.end()) 
                                                                     {
-                                                                         if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
-                                                                         else if(codes[$2] != "&=") fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"int "<<codes[$3]<<endl;
-                                                                         else fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<" "<<codes[$3]<<endl;
+                                                                         if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " := " + codes[$3]+"\n";
+                                                                         else if(codes[$2] != "&=") thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+"int "+codes[$3]+"\n";
+                                                                         else thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n";
                                                                     }
                                                                     else if(types3.find(exptypes[$1])!=types3.end() && types3.find(exptypes[$3])!=types3.end()) 
                                                                     {
                                                                         if(codes[$2] == "&=") yyerror("incompatible operand types");
-                                                                        else if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
-                                                                         else fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"float "<<codes[$3]<<endl;
+                                                                        else if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " := " + codes[$3]+"\n";
+                                                                         else thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+"float "+codes[$3]+"\n";
                                                                     }
                                                                     else if(exptypes[$1]==exptypes[$3]){ 
-                                                                        if(codes[$2] == "&=" && exptypes[$1]=="boolean") fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<" "<<codes[$3]<<endl;
-                                                                        else if(codes[$2]== "=") fout << "\t" << codes[$1] << " := " << codes[$3]<<endl;
+                                                                        if(codes[$2] == "&=" && exptypes[$1]=="boolean") thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n";
+                                                                        else if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " := " + codes[$3]+"\n";
                                                                          else yyerror("incompatible types for assignment");
                                                                     }
                                                                     else if(types3.find(exptypes[$1])!=types3.end() && types2.find(exptypes[$3])!=types2.end()){
-                                                                        if(codes[$2]== "=") fout << "\t" << codes[$1] << " := cast_to_float " << codes[$3]<<endl;
+                                                                        if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " := cast_to_float " + codes[$3]+"\n";
                                                                         else {
                                                                             if(codes[$2] == "&=") yyerror("incompatible operand types");
                                                                             string v= gen_var();
-                                                                            fout << "\t" << v << " := cast_to_float " << codes[$3]<<endl;
-                                                                            fout << "\t" << codes[$1] << " := " << codes[$1]<<" "<<codes[$2][0]<<"float "<<v<<endl;
+                                                                            thecode[$$] += "\t" + v + " := cast_to_float " + codes[$3]+"\n";
+                                                                            thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+"float "+v+"\n";
                                                                         }
                                                                     }
                                                                     else yyerror("incompatible types for assignment (can also be lossy decomposition)");
@@ -1582,23 +1847,23 @@ Assignment_Operators    : ASSIGNMENT_OPERATOR                       {$$ = node; 
                                                                     codes[$$] = $1;
                                                                     }
                         ;
-LeftHandSide            : Name                                     {$$ = $1; // cout<<"variabel="<<nt[$1]->val<<endl;
+LeftHandSide            : Name                                     {$$ = $1; // cout+"variabel="+nt[$1]->val+"\n";
                                                                     nlist *q = find_in_list(global_tail,nt[$1]->val);
                                                                     if(!q) yyerror("variable not declared in this scope");
                                                                     exptypes[$$] = q->info.datatype;
                                                                     }
                         | FieldAccess                              
-                        | ArrayAccess
+                        | ArrayAccess                               {$$ = $1;}
                         ;
 Expression              : AssignmentExpression                      {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1];} 
+                                                                    codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1]; thecode[$$] = thecode[$1];} 
                         ;
 ConstantExpression      : Expression                                {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
-                                                                    codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1];} 
+                                                                    codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1]; thecode[$$] = thecode[$1];} 
                         ;
 
 %%                    
@@ -1619,7 +1884,7 @@ int main (int argc, char** argv) {
 
     if(argc!=3)
     {
-        cout << "The syntax for execution is: program input_filename output_filename" << endl;
+        cout << "The syntax for execution is: program input_filename output_filename" << "\n";
         return 0;
     }
 
@@ -1627,7 +1892,7 @@ int main (int argc, char** argv) {
     outfile.open(argv[2], ios::trunc);
     
     if (!infile) {
-        cout << "I can't open the file!" << endl;
+        cout << "I can't open the file!" << "\n";
         return -1;
     }
     yyin = infile;
@@ -1636,7 +1901,7 @@ int main (int argc, char** argv) {
 
     symboltables.push_back(Global);
 
-    outfile << "Name, " << "DataType, " << "LineNO, " << "Type, " << "ArgumentsOrDimensions" << endl << endl;
+    outfile << "Name, " << "DataType, " << "LineNO, " << "Type, " << "ArgumentsOrDimensions" << "\n" << "\n";
 
     for(int i=0; i<symboltables.size(); i++)
     {
@@ -1655,10 +1920,10 @@ int main (int argc, char** argv) {
                     a = a->next;
                 }
             }
-            outfile << endl;
+            outfile << "\n";
             temp = temp->next;
         }
-        outfile << endl; 
+        outfile << "\n"; 
     }
     //fout << "System.out.println:\n\tprint()"
     outfile.close();
