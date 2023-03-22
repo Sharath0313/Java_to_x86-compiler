@@ -57,6 +57,10 @@ struct nlist{
     struct nlist* prev;
 } typedef nlist;
 
+struct context{
+    string Entry, Exit;
+}; vector<context> currcontext;
+
 nlist* create_nlist(char* name, char* datatype, int lineno, int type, int dimension, list* args, bool mod){
 
     nlist* temp = new nlist;
@@ -97,6 +101,8 @@ map<string, int> types;
 map<int, string> codes;
 map<int, string> thecode;
 map<int, string> exptypes;
+map<int, string> identifier;
+vector<string> classdec;
 
 void out(nlist* t){
     
@@ -259,38 +265,74 @@ nlist* create_st(list* name, list* datatype, int lineno, int type, int dimension
     }
     else if(classtable.find(datatype->val)!=classtable.end())
     {
-        nlist* k = clone(classtable[datatype->val], false);
-        nlist* temp = k;
-        list* t = name;
-        nlist* prev = NULL;
-        t->val = strcat(t->val,".");
-        while(temp!=NULL)
-        {
-            char *z = strdup(t->val);
-            temp->info.name = strcat(z,temp->info.name);
-            prev = temp;
-            temp = temp->next;
-        }
-        t = t->next;
+        list* t1 = name;
+        if(find_in_list(global_tail, t1->val)) yyerror("variable with name already exists");
+        nlist* k1 = create_nlist(t1->val, datatype->val, lineno, type, dimension + t1->dim + datatype->dim, args, mod);
+        nlist* t2 = k1;
+        t1 = t1->next;
 
-        while(t!=NULL)
+        while(t1!=NULL)
         {
-            temp = prev;
-            temp->next = clone(classtable[datatype->val], false);
-            temp->next->prev = temp;
-            temp = temp->next;
-            t->val = strcat(t->val,".");
-            while(temp!=NULL)
+            if(find_in_list(t2,t1->val)) yyerror("variable with name already exists");
+            t2->next = create_nlist(t1->val, datatype->val, lineno, type, dimension + t1->dim + datatype->dim, args, mod);
+            t2->next->prev = t2;
+            t2 = t2->next;
+            t1 = t1->next;
+        }
+
+        if(datatype->dim==0)
+        {
+            list* t = name;
+            nlist* k = NULL;
+            nlist* temp;
+            nlist* prev = NULL;
+            while(t!=NULL && k==NULL)
             {
-                char *z = strdup(t->val);
-                temp->info.name = strcat(z,temp->info.name);
-                prev = temp;
-                temp = temp->next;
+                if(t->dim==0)
+                {
+                    k = clone(classtable[datatype->val], false);
+                    temp = k;
+
+                    char* z = strdup(t->val);
+                    z = strcat(z,".");
+                    while(temp!=NULL)
+                    {
+                        temp->info.name = strcat(strdup(z),temp->info.name);
+                        prev = temp;
+                        temp = temp->next;
+                    }
+                }
+                t = t->next;
             }
-            t = t->next;
+
+            while(t!=NULL && k!=NULL)
+            {
+                if(t->dim == 0)
+                {
+                    temp = prev;
+                    temp->next = clone(classtable[datatype->val], false);
+                    temp->next->prev = temp;
+                    temp = temp->next;
+                    char* z = strdup(t->val);
+                    z = strcat(z,".");
+                    while(temp!=NULL)
+                    {
+                        temp->info.name = strcat(strdup(z),temp->info.name);
+                        prev = temp;
+                        temp = temp->next;
+                    }
+                }
+                t = t->next;
+            }
+
+            if(k!=NULL)
+            {
+                t2->next = k;
+                k->prev = t2;
+            }
         }
 
-        return k;
+        return k1;
 
     }
     else if(interfacetable.find(datatype->val)!=interfacetable.end())
@@ -434,6 +476,52 @@ void mergep(nlist* &n1, nlist* n2){
 
 }
 
+string myclass(nlist *temp){
+    string cl;
+    while(temp){
+            if(!strcmp(temp->info.datatype,"class")) {cl = temp->info.name; break;}
+                temp = temp->prev;
+        } 
+        return cl;
+}
+
+void methodinvoc(int a,int r,int ind, string id){
+    if(ind==1){
+    string cl ;
+    nlist *q = find_in_list(global_tail, strdup(exptypes[a].c_str()));
+    if(!q){
+        q = find_in_list(global_tail, strdup(identifier[a].c_str())); nlist *temp = q;
+        cl = myclass(temp);
+        exptypes[r] = q->info.datatype;
+        thecode[r] += "\tparam this\n";
+        if(exptypes[r] != "void") {codes[r] = gen_var();
+            thecode[r] += "\t" + codes[r] + ":= call " + cl+ "."+ identifier[a] + "\n";}
+        else {thecode[r] += "\tcall " + cl+ "."+ identifier[a] + "\n";}
+    }
+    else{
+        nlist *temp = find_in_list(global_tail, nt[a]->val);
+        exptypes[r] = temp->info.datatype;
+        thecode[r] += "\tparam "+ codes[a] +"\n";
+        if(exptypes[r] != "void") {codes[r] = gen_var();
+            thecode[r] += "\t" + codes[r] + ":= call "; thecode[r]= thecode[r] + q->info.datatype + "." + identifier[a] + "\n";}
+        else {
+            thecode[r] += "\tcall "; thecode[r]= thecode[r] + q->info.datatype + "." + identifier[a] + "\n";
+        }
+    }
+    }
+    else {
+        string cl = exptypes[a] ;
+        if(ind==2) cl= parents[myclass(global_tail)] ;
+        thecode[r] += "\tparam "+ codes[a] +"\n";
+        if(exptypes[r] != "void") {codes[r] = gen_var();
+            thecode[r] += "\t" + codes[r] + ":= call "; thecode[r]= thecode[r] + cl+ "." + id + "\n";}
+        else {
+            thecode[r] += "\tcall "; thecode[r]= thecode[r] + cl + "." + id + "\n";
+        }
+    
+    }
+}
+
 %}
 
 %union{
@@ -467,6 +555,7 @@ void mergep(nlist* &n1, nlist* n2){
 %type<num>  MethodInvocation ArrayAccess PostfixExpression PostIncrementExpression PostDecrementExpression UnaryExpression PreIncrementExpression PreDecrementExpression Literal
 %type<num>  UnaryExpressionNotPlusMinus CastExpression MultiplicativeExpression AdditiveExpression ShiftExpression RelationalExpression EqualityExpression AndExpression
 %type<num>  ExclusiveOrExpression InclusiveOrExpression ConditionalAndExpression ConditionalOrExpression ConditionalExpression AssignmentExpression Assignment LeftHandSide Assignment_Operators Expression ConstantExpression
+%type<num> MARKBEG
 %%
 
 START                   : CompilationUnit              {if(each_symboltable[$1]!=NULL){pop_global(each_symboltable[$1]);
@@ -576,12 +665,27 @@ Name                    : SingleName                    {$$ = $1;}
 SingleName              : IDENTIFIER                    {$$ = node;
                                                         node++;
                                                         nt[$$] = create_list($1, 0);
-                                                        codes[$$]= $1;}
+                                                        codes[$$]= $1;
+                                                        if(!classdec.empty() && find(classdec.begin(),classdec.end(),$1)!= classdec.end()) {
+                                                            codes[$$] = "*"+codes[$$];
+                                                        }
+                                                        }
                         ;
-MultipleName            : Name DOT IDENTIFIER           {strcat(nt[$1]->val,$2);
+MultipleName            : Name DOT IDENTIFIER           { exptypes[$$] = nt[$1]->val;
+                                                        strcat(nt[$1]->val,$2);
                                                         strcat(nt[$1]->val,$3);
+                                                        identifier[$$] = $3; 
+                                                        nlist *q = find_in_list(global_tail, strdup(exptypes[$1].c_str()));
+                                                        string cl; if(q) cl = q->info.datatype;
+                                                        q = find_in_list(global_tail, nt[$1]->val);
+                                                        if(q && q->info.type != 3) {
+                                                        string v = gen_var();
+                                                        thecode[$$] = thecode[$1] ;//cout << thecode[$1];
+                                                        thecode[$$] += "\t" + v + " := " + codes[$1] + " + offset(" + $3 + ","+ cl+ ")\n";
+                                                        codes[$$] = "*"+v; 
                                                         $$ = $1;
-                                                        codes[$$] = nt[$1]->val;} 
+                                                        }
+                                                        } 
                         ;
 Modifiers               : STATIC Modifier           {$$ = $2;}
                         | Modifier STATIC           {$$ = $1;}
@@ -643,9 +747,11 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                 }
                                                                                 list* temp = nt[$2];
                                                                                 while(temp){
+                                                                                    if(!strcmp(temp->val,"")) {temp = temp->next; continue;}
                                                                                     fout << codes[$1] << "." << temp->val;
                                                                                     temp = temp->next;
                                                                                 }
+                                                                                classdec.clear();
                                                                             } 
                         | ClassHeader Super ClassBody                       {$$ = $1;
                                                                             pop_pglobal(each_symboltable[$2]);
@@ -667,6 +773,7 @@ ClassDeclaration        : ClassHeader ClassBody                             {
                                                                                     fout << codes[$1] << "." << temp->val;
                                                                                     temp = temp->next;
                                                                                 }
+                                                                                classdec.clear();
                                                                             }
                         ;
 ClassHeader             : CLASS IDENTIFIER                              {$$ = node;
@@ -714,20 +821,30 @@ FieldDeclaration        : Type VariableDeclarators SEMICOLON        {
                                                                     $$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL, true);
-                                                                    push_global(each_symboltable[$$]);}
+                                                                    push_global(each_symboltable[$$]);
+                                                                    list* x = nt[$2];
+                                                                    while(x){
+                                                                        classdec.push_back(x->val);  x = x->next; 
+                                                                    }}
                         | Modifiers Type VariableDeclarators SEMICOLON  {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$3], nt[$2], yylineno, 1, 0, NULL, $1);
-                                                                    push_global(each_symboltable[$$]);  }
+                                                                    push_global(each_symboltable[$$]);  
+                                                                    list* x = nt[$3];
+                                                                    while(x){
+                                                                        classdec.push_back(x->val); x = x->next; 
+                                                                    }}
                         ;
-VariableDeclarators     : VariableDeclarator                            {$$ = $1; thecode[$$] = codes[$1];}
+VariableDeclarators     : VariableDeclarator                            {$$ = $1; thecode[$$] = thecode[$1];}
                         | VariableDeclarators COMMA VariableDeclarator  {merge(nt[$1],nt[$3]);
                                                                         $$ = $1;
-                                                                       // thecode[$$] = thecode[$1]+ "," + codes[$3]; cout << thecode[$$];
+                                                                        thecode[$$] = thecode[$1]+ thecode[$3];
                                                                         }
                         ;
 VariableDeclarator      : VariableDeclaratorId                          {$$ = $1;}
-                        | VariableDeclaratorId EQ VariableInitializer   {$$ = $1;}
+                        | VariableDeclaratorId EQ VariableInitializer   {$$ = $1;
+                                                                          if(nt[$1]->dim == 0) {thecode[$$] = thecode[$3]+"\t"+codes[$1]+" := "+codes[$3]+"\n";}
+                                                                        }
                         ;
 VariableDeclaratorId    : IDENTIFIER                                    {$$ = node;
                                                                         node++;
@@ -742,7 +859,17 @@ VariableInitializer     : Expression                                    {$$ = $1
 MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;
                                                                         string sout ;
                                                                         sout = codes[$1]+":\n";
-                                                                        sout += thecode[$1] + thecode[$2];
+                                                                        nlist *temp = global_tail; string cl;
+                                                                        cl = myclass(temp);
+                                                                        sout += thecode[$1] ;
+                                                                        sout += "\tthis := popparam\n" ;
+                                                                            for(int i=0; i< classdec.size(); i++){
+                                                                                nlist* q= find_in_list(global_tail,strdup(classdec[i].c_str()));
+                                                                                if(q && q->info.type != 3) {
+                                                                                    sout = sout+ "\t"+classdec[i] + " := "+ " this + offset(" + classdec[i] +","+ cl +")\n"; 
+                                                                                } 
+                                                                            }
+                                                                            sout+= thecode[$2];
                                                                         thecode[$$] = sout + "\tEndFunction\n";
                                                                     }
                         ;
@@ -776,19 +903,18 @@ MethodHeader            : Type MethodDeclarator                     {$$ = node;
                                                                     if(each_symboltable[$3]!=NULL) $$ = $3;
                                                                     codes[$$] = codes[$3]; thecode[$$] = thecode[$3];}
                         ;
-MethodDeclarator        : SingleName ONB CNB                            {$$ = $1; codes[$$] = codes[$1]; thecode[$$] = "\tparams: \n";}
+MethodDeclarator        : SingleName ONB CNB                            {$$ = $1; codes[$$] = codes[$1]; }
                         | SingleName ONB FormalParameterList CNB        {$$ = $3; 
                                                                         list* k = nt[$3];
                                                                         nt[$$] = nt[$1];
                                                                         args[$$] = k;
                                                                         codes[$$] = codes[$1];
-                                                                        thecode[$$] = "\tparams: " + thecode[$3]; 
-                                                                        thecode[$$] += "\n";
+                                                                        thecode[$$] = thecode[$3]; 
                                                                         }
                         ;
-FormalParameterList     : FormalParameter                               {$$ = $1; thecode[$$] = codes[$1];}
+FormalParameterList     : FormalParameter                               {$$ = $1; thecode[$$] = "\t"+ codes[$1] + " := popparam\n";}
                         | FormalParameterList COMMA FormalParameter     {merge(nt[$1],nt[$3]);
-                                                                        thecode[$$] = thecode[$1] + "," + codes[$3]; 
+                                                                        thecode[$$] = thecode[$1] + "\t"+ codes[$3] + " := popparam\n";
                                                                         $$ = $1;
                                                                         }
                         ;
@@ -809,18 +935,51 @@ StaticInitializer       : STATIC Block              {$$ = $2;}
                         ;
 ConstructorDeclaration  : ConstructorDeclarator ConstructorBody         {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = create_st(nt[$1], create_list("Constructor", 0), yylineno, 3, 0, NULL, true);
-                                                                    push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$1];}
+                                                                    // each_symboltable[$$] = create_st(nt[$1], create_list("Constructor", 0), yylineno, 3, 0, NULL, true);
+                                                                    // push_global(each_symboltable[$$]);
+                                                                    // each_symboltable[$$]->info.args = args[$1];
+                                                                    string sout;
+                                                                    sout = codes[$1]+":\n";
+                                                                        nlist *temp = global_tail; string cl;
+                                                                        cl = myclass(temp);
+                                                                        sout += thecode[$1] ;
+                                                                        sout += "\tthis := popparam\n" ;
+                                                                            for(int i=0; i< classdec.size(); i++){
+                                                                                nlist* q= find_in_list(global_tail,strdup(classdec[i].c_str()));
+                                                                                if(q && q->info.type != 3) {
+                                                                                    sout = sout+ "\t"+classdec[i] + " := "+ " this + offset(" + classdec[i] +","+ cl +")\n"; 
+                                                                                } 
+                                                                            } 
+                                                                            sout+= thecode[$2];
+                                                                        thecode[$$] = sout + "\tEndFunction\n";
+                                                                    }
                         | Modifiers ConstructorDeclarator ConstructorBody   {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], create_list("Constructor", 0), yylineno, 3, 0, NULL, $1);
                                                                     push_global(each_symboltable[$$]);
-                                                                    each_symboltable[$$]->info.args = args[$2];}
+                                                                    each_symboltable[$$]->info.args = args[$2];
+                                                                    string sout;
+                                                                    sout = codes[$2]+":\n";
+                                                                        nlist *temp = global_tail; string cl;
+                                                                        cl = myclass(temp);
+                                                                        sout += thecode[$2] ;
+                                                                        sout += "\tthis := popparam\n" ;
+                                                                            for(int i=0; i< classdec.size(); i++){
+                                                                                nlist* q= find_in_list(global_tail,strdup(classdec[i].c_str()));
+                                                                                if(q && q->info.type != 3) {
+                                                                                    sout = sout+ "\t"+classdec[i] + " := "+ " this + offset(" + classdec[i] +","+ cl +")\n"; 
+                                                                                } 
+                                                                            }
+                                                                            sout+= thecode[$3];
+                                                                        thecode[$$] = sout + "\tEndFunction\n";
+                                                                    }
                         ;
 ConstructorDeclarator   : SingleName ONB CNB                        {$$ = $1;}   
                         | SingleName ONB FormalParameterList CNB    {$$ = $1;
-                                                                    args[$$] = nt[$3];} 
+                                                                    args[$$] = nt[$3];
+                                                                        codes[$$] = codes[$1];
+                                                                        thecode[$$] = thecode[$3]; 
+                                                                    } 
                         ;   
 ConstructorBody         : OCB CCB                   {$$ = node;
                                                     node++;
@@ -833,7 +992,7 @@ ConstructorBody         : OCB CCB                   {$$ = node;
                                                                                 symboltables.push_back(each_symboltable[$2]);
                                                                                 each_symboltable[$2] = NULL;
                                                                                 $$ = $2;
-                                                                                }
+                                                                                } thecode[$$]= thecode[$2];
                                                                             }         
                         | OCB ExplicitConstructorInvocation BlockStatements CCB {if(each_symboltable[$3]!=NULL){
                                                                                     pop_global(each_symboltable[$3]);
@@ -889,7 +1048,7 @@ AbstractMethodDeclaration   : MethodHeader SEMICOLON                    {$$ = $1
 ArrayInitializer        : OCB CCB
                         | OCB VariableInitializers CCB
                         | OCB COMMA CCB
-                        | OCB VariableInitializers COMMA CCB
+                        | OCB VariableInitializers COMMA CCB 
                         ;
 VariableInitializers    : VariableInitializer
                         | VariableInitializers COMMA VariableInitializer
@@ -907,7 +1066,7 @@ Block                   : OCB CCB                                           {$$ 
                                                                                 thecode[$$] = thecode[$2];
                                                                             }
                         ;
-BlockStatements         : BlockStatement                                    {$$ = $1;}
+BlockStatements         : BlockStatement                                    {$$ = $1; }
                         | BlockStatements BlockStatement                    {if(each_symboltable[$1]!=NULL) $$ = $1;
                                                                             else $$ = $2;
                                                                             string sout;
@@ -924,6 +1083,7 @@ LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = create_st(nt[$2], nt[$1], yylineno, 1, 0, NULL, true);
                                                                     push_global(each_symboltable[$$]);  
+                                                                    thecode[$$] = thecode[$2];
                                                                     }   
                             ;
 Statement               : StatementWithoutTrailingSubstatement      {$$ = $1;}   
@@ -1058,51 +1218,55 @@ SwitchLabel             : CASE ConstantExpression COLON             {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;} 
                         ;
-WhileStatement          : WHILE ONB Expression CNB Statement                {if(each_symboltable[$5]!=NULL){
-                                                                                pop_global(each_symboltable[$5]);
-                                                                                symboltables.push_back(each_symboltable[$5]);
-                                                                                each_symboltable[$5] = NULL;
-                                                                                $$ = $5;
+WhileStatement          : WHILE ONB Expression CNB MARKBEG Statement              {if(each_symboltable[$6]!=NULL){
+                                                                                pop_global(each_symboltable[$6]);
+                                                                                symboltables.push_back(each_symboltable[$6]);
+                                                                                each_symboltable[$6] = NULL;
+                                                                                $$ = $6;
                                                                                 }
                                                                                 if(exptypes[$3]!= "boolean") yyerror("condition does not evaluate to boolean");
                                                                                 string sout;
                                                                                 sout = thecode[$3];
-                                                                                string t= gen_label(), f= gen_label();
+                                                                                string t= currcontext.back().Entry, f= currcontext.back().Exit;
                                                                                 sout += t + ":\n\tifFalse "+ codes[$3] + " goto " + f +"\n";
-                                                                                sout += thecode[$5] + thecode[$3] + "\tgoto " + t +"\n";
+                                                                                sout += thecode[$6] + thecode[$3] + "\tgoto " + t +"\n";
                                                                                 sout += f +":\n";
                                                                                 thecode[$$] = sout;
+                                                                                currcontext.pop_back();
                                                                             }   
                         ;
-WhileStatementNoShortIf : WHILE ONB Expression CNB StatementNoShortIf       {if(each_symboltable[$5]!=NULL){
-                                                                                pop_global(each_symboltable[$5]);
-                                                                                symboltables.push_back(each_symboltable[$5]);
-                                                                                each_symboltable[$5] = NULL;
-                                                                                $$ = $5;
+WhileStatementNoShortIf : WHILE ONB Expression CNB MARKBEG StatementNoShortIf       {if(each_symboltable[$6]!=NULL){
+                                                                                pop_global(each_symboltable[$6]);
+                                                                                symboltables.push_back(each_symboltable[$6]);
+                                                                                each_symboltable[$6] = NULL;
+                                                                                $$ = $6;
                                                                                 }
                                                                                 if(exptypes[$3]!= "boolean") yyerror("condition does not evaluate to boolean");
                                                                                 string sout;
                                                                                 sout = thecode[$3];
-                                                                                string t= gen_label(), f= gen_label();
+                                                                                string t= currcontext.back().Entry, f= currcontext.back().Exit;
                                                                                 sout += t + ":\n\tifFalse "+ codes[$3] + " goto " + f +"\n";
-                                                                                sout += thecode[$5] + thecode[$3] + "\tgoto " + t +"\n";
+                                                                                sout += thecode[$6] + thecode[$3] + "\tgoto " + t +"\n";
                                                                                 sout += f +":\n";
                                                                                 thecode[$$] = sout;
+                                                                                currcontext.pop_back();
                                                                             }
                         ;
-DoStatement             : DO Statement WHILE ONB Expression CNB SEMICOLON   {if(each_symboltable[$2]!=NULL){
-                                                                                pop_global(each_symboltable[$2]);
-                                                                                symboltables.push_back(each_symboltable[$2]);
-                                                                                each_symboltable[$2] = NULL;
-                                                                                $$ = $2;
+DoStatement             : DO MARKBEG Statement WHILE ONB Expression CNB SEMICOLON   {if(each_symboltable[$3]!=NULL){
+                                                                                pop_global(each_symboltable[$3]);
+                                                                                symboltables.push_back(each_symboltable[$3]);
+                                                                                each_symboltable[$3] = NULL;
+                                                                                $$ = $3;
                                                                                 }
-                                                                                if(exptypes[$5]!= "boolean") yyerror("condition does not evaluate to boolean");
+                                                                                if(exptypes[$6]!= "boolean") yyerror("condition does not evaluate to boolean");
                                                                                 string sout;
-                                                                                string t= gen_label();
+                                                                                string t= currcontext.back().Entry, f= currcontext.back().Exit;
                                                                                 sout = t + ":\n";
-                                                                                sout += thecode[$2] + thecode[$5];
-                                                                                sout += "\tif "+ codes[$5] +" goto "+ t+"\n";
+                                                                                sout += thecode[$3] + thecode[$6];
+                                                                                sout += "\tif "+ codes[$6] +" goto "+ t+"\n";
+                                                                                sout +=  f +":\n";
                                                                                 thecode[$$] = sout;
+                                                                                currcontext.pop_back();
                                                                             }
                         ;
 ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(each_symboltable[$6]!=NULL){
@@ -1112,8 +1276,9 @@ ForStatement            : FOR ONB SEMICOLON SEMICOLON CNB Statement         {if(
                                                                                 $$ = $6;
                                                                                 }
                                                                                 string sout;
-                                                                                string t = gen_label();
+                                                                                string t = currcontext.back().Entry, f = currcontext.back().Exit;
                                                                                 sout = t+":\n" + thecode[$6] +"\tgoto "+ t+"\n";
+                                                                                sout += f + ":\n";
                                                                                 thecode[$$] = sout;
                                                                             }      
                         | FOR ONB ForInit SEMICOLON SEMICOLON CNB Statement {if(each_symboltable[$3]!=NULL){
@@ -1336,6 +1501,8 @@ StatementExpressionList : StatementExpression               {$$ = $1;}
 BreakStatement          : BREAK SEMICOLON                           {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
+                                                                    if(currcontext.empty()) yyerror("No outer loop detected for break (not handled 'for')");
+                                                                    thecode[$$] = "\tgoto " + currcontext.back().Exit + "\n";
                                                                     }              
                         | BREAK IDENTIFIER  SEMICOLON               {$$ = node;
                                                                     node++;
@@ -1343,7 +1510,10 @@ BreakStatement          : BREAK SEMICOLON                           {$$ = node;
                         ;
 ContinueStatement       : CONTINUE SEMICOLON                        {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    if(currcontext.empty()) yyerror("No outer loop detected for continue (not handled 'for')");
+                                                                    thecode[$$] = "\tgoto " + currcontext.back().Entry + "\n";
+                                                                    } 
                         | CONTINUE IDENTIFIER SEMICOLON             {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;} 
@@ -1381,7 +1551,9 @@ Primary                 : PrimaryNoNewArray                         {$$ = $1;}
 PrimaryNoNewArray       : Literal                                   {$$ = $1;}
                         | THIS                                      {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    codes[$$] = $1; nlist *t= global_tail; exptypes[$$] = myclass(t);
+                                                                    } 
                         | ONB Expression CNB                        {$$ = $2;}
                         | ClassInstanceCreationExpression           {$$ = $1;}
                         | FieldAccess                               {$$ = $1;}
@@ -1390,60 +1562,132 @@ PrimaryNoNewArray       : Literal                                   {$$ = $1;}
                         ;
 ClassInstanceCreationExpression : NEW ClassType ONB CNB             {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;}  
+                                                                    each_symboltable[$$] = NULL;
+                                                                    string v1 = gen_var(), v2 = gen_var();
+                                                                    thecode[$$] = "\t"+v1 + " := " + "sizeof("+ codes[$2] +")\n"; 
+                                                                    thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    thecode[$$] += "\tparam "+v2+"\n"+"\tcall "+codes[$2]+"."+codes[$2]+"\n";
+                                                                    codes[$$] = v2; exptypes[$$] = codes[$2];
+                                                                    }  
                                 | NEW ClassType ONB ArgumentList CNB    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    string v1 = gen_var(), v2 = gen_var();
+                                                                    thecode[$$] = "\t"+v1 + " := " + "sizeof("+ codes[$2] +")\n"; 
+                                                                    thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    thecode[$$] += "\tparam "+v2+"\n" + thecode[$4];
+                                                                    thecode[$$] += "\tcall "+codes[$2]+"."+codes[$2]+"\n";
+                                                                    codes[$$] = v2; exptypes[$$] = codes[$2];
+                                                                    } 
                                 ;
-ArgumentList            : Expression                                
-                        | ArgumentList COMMA Expression             
+ArgumentList            : Expression                                {$$= node; node++;
+                                                                     thecode[$$] = thecode[$1];
+                                                                     thecode[$$] += "\tparam " + codes[$1] + "\n";
+                                                                    }
+                        | ArgumentList COMMA Expression             {
+                                                                     $$= node; node++;
+                                                                     thecode[$$] = thecode[$1] + thecode[$3];
+                                                                     thecode[$$] += "\tparam " + codes[$3] + "\n";
+                                                                    }
                         ;
 ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    string v1 = gen_var(), v2 = gen_var();
+                                                                    thecode[$$] = thecode[$3] ;
+                                                                    thecode[$$] += "\t"+v1 + " := " + "sizeof("+ codes[$2] +") *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    codes[$$] = v2; exptypes[$$] = codes[$2];
+                                                                    } 
                         | NEW PrimitiveType DimExprs Dims           {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    string v1 = gen_var(), v2 = gen_var();
+                                                                    thecode[$$] = thecode[$3] ;
+                                                                    thecode[$$] += "\t"+v1 + " := " + "sizeof("+ codes[$2] +") *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    codes[$$] = v2; exptypes[$$] = codes[$2];} 
                         | NEW ClassOrInterfaceType DimExprs         {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    string v1 = gen_var(), v2 = gen_var();
+                                                                    thecode[$$] = thecode[$3] ;
+                                                                    thecode[$$] += "\t"+v1 + " := " + "sizeof("+ codes[$2] +") *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    codes[$$] = v2; exptypes[$$] = codes[$2];} 
                         | NEW ClassOrInterfaceType DimExprs Dims    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    string v1 = gen_var(), v2 = gen_var();
+                                                                    thecode[$$] = thecode[$3] ;
+                                                                    thecode[$$] += "\t"+v1 + " := " + "sizeof("+ codes[$2] +") *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    codes[$$] = v2; exptypes[$$] = codes[$2];} 
                         ;
-DimExprs                : DimExpr
-                        | DimExprs DimExpr
+DimExprs                : DimExpr               {$$ = $1;}
+                        | DimExprs DimExpr      { $$ = node; node++;
+                                                    codes[$$] = gen_var();
+                                                    thecode[$$] = thecode[$1] + thecode[$2];
+                                                    thecode[$$] += "\t" + codes[$$] + " := " +codes[$1]+ " *int " + codes[$2] + "\n";
+                                                }
                         ;
-DimExpr                 : OSB Expression CSB
+DimExpr                 : OSB Expression CSB    {$$ = $2;}
                         ;
 Dims                    : OSB CSB
                         | Dims OSB CSB
                         ;   
 FieldAccess             : Primary DOT IDENTIFIER                    {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    string v= gen_var();
+                                                                    thecode[$$] = thecode[$1];
+                                                                    thecode[$$] += "\t" + v + " := "+codes[$1]+" + offset("+$3+","+ exptypes[$1]+")\n";
+                                                                    codes[$$]= v;
+                                                                    } 
                         | SUPER DOT IDENTIFIER                      {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;} 
                         ;   
 MethodInvocation        : Name ONB CNB                              {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    node++; 
+                                                                    each_symboltable[$$] = NULL; 
+                                                                    methodinvoc($1,$$,1,"");
+                                                                    } 
                         | Name ONB ArgumentList CNB                 {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    thecode[$$] = thecode[$3];
+                                                                    methodinvoc($1,$$,1,"");
+                                                                    } 
                         | Primary DOT IDENTIFIER ONB CNB            {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    node++; 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    thecode[$$] = thecode[$1];
+                                                                    methodinvoc($1,$$,0,$3);
+                                                                    } 
                         | Primary DOT IDENTIFIER ONB ArgumentList CNB   {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    thecode[$$] = thecode[$1] + thecode[$5];
+                                                                    methodinvoc($1,$$,0,$3);
+                                                                    } 
                         | SUPER DOT IDENTIFIER ONB CNB              {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    // methodinvoc($1,$$,2,$3);
+                                                                    } 
                         | SUPER DOT IDENTIFIER ONB ArgumentList CNB {$$ = node;
                                                                     node++;
-                                                                    each_symboltable[$$] = NULL;} 
+                                                                    each_symboltable[$$] = NULL;
+                                                                    // thecode[$$] = thecode[$1] + thecode[$5];
+                                                                    // methodinvoc($1,$$,2,$3);
+                                                                    } 
                         ;
 ArrayAccess             : Name OSB Expression CSB                   {
                                                                         $$=node; node++;
@@ -1452,7 +1696,7 @@ ArrayAccess             : Name OSB Expression CSB                   {
                                                                         if(!q) yyerror("variable not declared");
                                                                         if(types2.find(exptypes[$3]) == types2.end()) yyerror("index is not of type int");
                                                                         string v = gen_var();
-                                                                        thecode[$$] = thecode[$3] ;
+                                                                        thecode[$$] = thecode[$1]+thecode[$3] ;
                                                                         thecode[$$] += "\t" + v + " := "+ nt[$1]->val +" + "+codes[$3]+"\n";
                                                                         codes[$$] = "*"+v; 
                                                                         exptypes[$$] = q->info.datatype;
@@ -1848,11 +2092,11 @@ Assignment_Operators    : ASSIGNMENT_OPERATOR                       {$$ = node; 
                                                                     }
                         ;
 LeftHandSide            : Name                                     {$$ = $1; // cout+"variabel="+nt[$1]->val+"\n";
-                                                                    nlist *q = find_in_list(global_tail,nt[$1]->val);
+                                                                     nlist *q = find_in_list(global_tail,nt[$1]->val);
                                                                     if(!q) yyerror("variable not declared in this scope");
                                                                     exptypes[$$] = q->info.datatype;
                                                                     }
-                        | FieldAccess                              
+                        | FieldAccess                               {$$ = $1;}
                         | ArrayAccess                               {$$ = $1;}
                         ;
 Expression              : AssignmentExpression                      {$$ = node;
@@ -1864,6 +2108,11 @@ ConstantExpression      : Expression                                {$$ = node;
                                                                     node++;
                                                                     each_symboltable[$$] = NULL;
                                                                     codes[$$]=codes[$1]; exptypes[$$] = exptypes[$1]; thecode[$$] = thecode[$1];} 
+                        ;
+MARKBEG                 : %empty                                    {
+                                                                        context temp; temp.Entry = gen_label(); temp.Exit = gen_label();
+                                                                        currcontext.push_back(temp);
+                                                                    }
                         ;
 
 %%                    
