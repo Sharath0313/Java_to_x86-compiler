@@ -4,8 +4,8 @@ class Main {
         String band = "Beatles";
     	
         if (band == "Beatles") { // start of block
-            System.out.print("Hey ");
-            System.out.print("Jude!");
+            System.out.println("Hey ");
+            System.out.println("Jude!");
         } // end of block
     }
 }

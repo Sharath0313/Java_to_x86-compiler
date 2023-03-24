@@ -64,7 +64,7 @@ true|false {yylval.str = strdup(yytext);return BOOL_LITERAL;}
 "!=" {yylval.str = strdup(yytext);return RELNOTEQ;}
 "<<"|">>"|">>>" {yylval.str = strdup(yytext);return SHIFT;}
 ">"|"<"|"<="|">=" {yylval.str = strdup(yytext);return RELGL;}
-; {yylval.str = strdup(yytext);return SEMICOLON;}
+";" {yylval.str = strdup(yytext);return SEMICOLON;}
 "." {yylval.str = strdup(yytext);return DOT;}
 "*" {yylval.str = strdup(yytext);return STAR;}
 "[" {yylval.str = strdup(yytext);return OSB;}
@@ -101,15 +101,11 @@ true|false {yylval.str = strdup(yytext);return BOOL_LITERAL;}
 -{0,1}0(x|X)[0-9a-fA-F]*"."[0-9a-fA-F]+(p|P)(("+"|-){0,1}([1-9][0-9]*|[0])){0,1}(f|F|d|D){0,1} {yylval.str = strdup(yytext);return FLOAT_LITERAL;}
 '(\\.|[^'])' {yylval.str = strdup(yytext);return CHAR_LITERAL;}
 \"(\\.|[^"\\])*\"   {
-                        yytext[strlen(yytext)-1] = '\0';
-                        yylval.str = strdup(yytext+1);
+                        yylval.str = strdup(yytext);
                         return STRING_LITERAL;
                     }
 \"\"\"(\\.|\n|[^"]|\"[^"]|\"\"[^"])*[\n|\r|\r\n](\\.|\n|[^"]|\"[^"]|\"\"[^"])*\"\"\" {
-                        yytext[strlen(yytext)-1] = '\0';
-                        yytext[strlen(yytext)-2] = '\0';
-                        yytext[strlen(yytext)-3] = '\0';
-                        yylval.str = strdup(yytext+3);
+                        yylval.str = strdup(yytext);
                         return TEXT_BLOCK;
                     }
 [_]*[_a-zA-Z][_a-zA-Z0-9]* {yylval.str = strdup(yytext);return IDENTIFIER;}
