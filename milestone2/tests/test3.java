@@ -1,17 +1,57 @@
-class Fibonacci {
-  public static void main(String[] args) {
+// Java program for addition of two matrices
 
-    int n = 100, firstTerm = 0, secondTerm = 1;
-        
-    System.out.println("Fibonacci Series Upto " + n + ": ");
-    
-    while (firstTerm <= n) {
-      System.out.print(firstTerm + ", ");
+import java.io.*;
 
-      int nextTerm = firstTerm + secondTerm;
-      firstTerm = secondTerm;
-      secondTerm = nextTerm;
+class GFG {
 
-    }
-  }
+	// Function to print Matrix
+	static void printMatrix(int M[][],
+							int rowSize,
+							int colSize)
+	{
+		for (int i = 0; i < rowSize; i++) {
+			for (int j = 0; j < colSize; j++);
+				// System.out.println(M[i][j] + " ");
+
+			// System.out.println();
+		}
+	}
+
+	// Function to add the two matrices
+	// and store in matrix C
+	static int[][] add(int A[][], int B[][],
+					int size)
+	{
+		int i, j;
+		int C[][] = new int[size][size];
+
+		for (i = 0; i < size; i++)
+			for (j = 0; j < size; j++)
+				C[i][j] = A[i][j] + B[i][j];
+
+		return C;
+	}
+
+	// Driver code
+	public static void main(String[] args)
+	{
+		int size = 4;
+		int A[][] = new int[4][4];
+		// Print the matrices A
+		System.out.println("\nMatrix A:");
+		printMatrix(A, size, size);
+
+		int B[][] = new int[4][4];
+		// Print the matrices B
+		System.out.println("\nMatrix B:");
+		printMatrix(B, size, size);
+
+		// Add the two matrices
+		int C[][];
+        C = add(A, B, size);
+
+		// Print the result
+		System.out.println("\nResultant Matrix:");
+		printMatrix(C, size, size);
+	}
 }

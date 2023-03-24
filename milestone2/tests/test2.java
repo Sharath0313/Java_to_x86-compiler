@@ -1,25 +1,21 @@
-class Main {
-  public static void main(String[] args) {
-
-    String[] words = { "Ruby", "C", "Python", "Java" };
-
-    for(int i = 0; i < 3; ++i) {
-      for (int j = i + 1; j < 4; ++j) {
-          
-        if (words[i].compareTo(words[j]) > 0) {
-
-          // swap words[i] with words[j[
-          String temp = words[i];
-          words[i] = words[j];
-          words[j] = temp;
-        }
-      }
-    }
-
-    System.out.println("In lexicographical order:");
-    
-    for(int i = 0; i < 4; i++) {
-      System.out.println(words[i]);
-    }
-  }
-}
+public class PrimeExample{    
+ public static void main(String args[]){    
+  int i,m=0,flag=0;      
+  int n=(int)3;//it is the number to be checked    
+  m=n/2;      
+  if(n==0||n==1){  
+   System.out.println(n+" is not prime number");      
+  }else{ 
+   i = 2; 
+   while(i<=m){      
+    if(n%i==0){      
+     System.out.println(n+" is not prime number");      
+     flag=1;      
+     break;      
+    } 
+    i++;     
+   }      
+   if(flag==0)  { System.out.println(n+" is prime number"); }  
+  }//end of else  
+}    
+} 

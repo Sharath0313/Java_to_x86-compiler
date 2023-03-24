@@ -1,18 +1,35 @@
-import java.util.Scanner;
+// Java program for the above approach
 
-public class HelloWorld {
+class GFG {
 
-    public static void main(String[] args) {
+	// Function to print N Fibonacci Number
+	static void Fibonacci(int N)
+	{
+		int num1 = 0, num2 = 1;
 
-        // Creates a reader instance which takes
-        // input from standard input - keyboard
-        Scanner reader = new Scanner(System.in);
-        System.out.print("Enter a number: ");
+		int counter = 0;
 
-        // nextInt() reads the next integer from the keyboard
-        int number = reader.nextInt();
+		// Iterate till counter is N
+		while (counter < N) {
 
-        // println() prints the following line to the output screen
-        System.out.println("You entered: " + number);
-    }
+			// Print the number
+			System.out.println(num1 + " ");
+
+			// Swap
+			int num3 = num2 + num1;
+			num1 = num2;
+			num2 = num3;
+			counter = counter + 1;
+		}
+	}
+
+	// Driver Code
+	public static void main(String args[])
+	{
+		// Given Number N
+		int N = 10;
+
+		// Function Call
+		Fibonacci(N);
+	}
 }

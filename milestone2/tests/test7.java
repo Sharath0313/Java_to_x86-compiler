@@ -1,16 +1,13 @@
-class MultidimensionalArray {
-    public static void main(String[] args) {
-
-        int[][] a = {
-            {1, -2, 3}, 
-            {-4, -5, 6, 9}, 
-            {7}, 
-        };
-      
-        for (int i = 0; i < a.length; ++i) {
-            for(int j = 0; j < a[i].length; ++j) {
-                System.out.println(a[i][j]);
-            }
-        }
+public class Main {
+  public static int sum(int k) {
+    if (k > 0) {
+      return k + sum(k - 1);
+    } else {
+      return 0;
     }
+  }
+  public static void main(String[] args) {
+    int result = sum(10);
+    System.out.println(result);
+  }
 }

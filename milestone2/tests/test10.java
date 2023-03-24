@@ -1,23 +1,21 @@
-public int calculateSum(Node temp){  
-        int sum, sumLeft, sumRight;  
-        sum = sumRight = sumLeft = 0;  
-  
-        //Check whether tree is empty  
-        if(root == null) {  
-            System.out.println("Tree is empty");  
-            return 0;  
-        }  
-        else {  
-            //Calculate the sum of nodes present in left subtree  
-            if(temp.left != null)  
-                sumLeft = calculateSum(temp.left);  
-  
-            //Calculate the sum of nodes present in right subtree  
-            if(temp.right != null)  
-                sumRight = calculateSum(temp.right);  
-  
-            //Calculate the sum of all nodes by adding sumLeft, sumRight and root node's data  
-            sum = temp.data + sumLeft + sumRight;  
-            return sum;  
-        }  
-      }  
+class Main {
+  public static void main(String[] args) {
+
+    int num = 1234, reversed = 0;
+    
+    System.out.println("Original Number: " + num);
+
+    // run loop until num becomes 0
+    while(num != 0) {
+    
+      // get last digit from num
+      int digit = num % 10;
+      reversed = reversed * 10 + digit;
+
+      // remove the last digit from num
+      num /= 10;
+    }
+
+    System.out.println("Reversed Number: " + reversed);
+  }
+}
