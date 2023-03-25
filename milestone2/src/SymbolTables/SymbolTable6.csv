@@ -1,0 +1,4 @@
+Name, DataType, LineNO, Type, ArgumentsOrDimensions
+
+Fibonacci, void, 6, 3, 0, ARGS: int(0)
+main, void, 27, 3, 0, ARGS: String(1)
