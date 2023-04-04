@@ -1,3 +1,0 @@
-Name, DataType, LineNO, Type, ArgumentsOrDimensions
-
-System.out.println, void, -1, 3, 0, ARGS: all(0)
