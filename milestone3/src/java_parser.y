@@ -34,6 +34,7 @@ struct symrec{
     int lineno,type,dimension;       // 1->localvar 2->class 3->method 4->import 5->package 6->Constructor
     list* args;
     bool mod;
+    int offset = -1;
 } typedef symrec;
 
 symrec create_symrec(char* name, char* datatype, int lineno, int type, int dimension, list* args, bool mod){
@@ -106,6 +107,8 @@ map<int, string> thecode;
 map<int, string> exptypes;
 map<int, string> identifier;
 vector<string> classdec;
+int field_dec_offset = 0;
+int local_var_offset = 0;
 
 void out(nlist* t){
     
@@ -124,6 +127,7 @@ void out(nlist* t){
                 a = a->next;
             }
         }
+        cout << " " << temp->info.offset;
         cout << endl;
         temp = temp->next;
     }
@@ -164,6 +168,7 @@ nlist* clone(nlist* l, bool super){
         if(a->info.mod)
         {
             t->next = create_nlist(a->info.name, a->info.datatype, a->info.lineno, a->info.type, a->info.dimension, clonel(a->info.args), a->info.mod);
+            t->next->info.offset = a->info.offset;
             t->next->prev = t;
             t = t->next;
             if(super)
@@ -436,6 +441,7 @@ nlist* find_in_list(nlist* tail, char* id){
         if(!strcmp(t->info.name, id))
         {
             nlist* res = create_nlist(t->info.name, t->info.datatype, t->info.lineno, t->info.type, t->info.dimension, t->info.args, t->info.mod);
+            res->info.offset = t->info.offset;
             return res;
         }
         t = t->prev;
@@ -614,6 +620,64 @@ void methodinvoc(int a,int r,int ind, string id){
     }
 }
 
+int give_size(string k, int dim){
+
+    if(dim>0)
+    return 8;
+
+    if(k=="int" || k=="float")
+    return 4;
+    else if(k=="long" || k=="double" || k=="String")
+    return 8;
+    else if(k=="char")
+    return 2;
+    else if(k=="boolean")
+    return 1;
+    else if(classtable.find(k)!=classtable.end() || interfacetable.find(k)!=interfacetable.end())
+    return 8;
+    else
+    return -1;
+
+}
+
+void build_field_offset(nlist* nl){
+
+    nlist* temp = nl;
+
+    while(temp!=NULL)
+    {
+        int p = give_size(temp->info.datatype, temp->info.dimension);
+        if(temp->info.offset == -1 && temp->info.type!=3 && p!=-1)
+        {
+            temp->info.offset = field_dec_offset;
+            field_dec_offset += p;
+        }
+        temp = temp->next;
+    }
+
+    return ;
+
+}
+
+void build_local_offset(nlist* nl){
+
+    nlist* temp = nl;
+
+    while(temp!=NULL)
+    {
+        int p = give_size(temp->info.datatype, temp->info.dimension);
+        if(temp->info.offset == -1 && temp->info.type!=3 && p!=-1)
+        {
+            temp->info.offset = local_var_offset;
+            local_var_offset += p;
+        }
+        temp = temp->next;
+    }
+
+    return ;
+
+}
+
 %}
 
 %union{
@@ -772,8 +836,8 @@ MultipleName            : Name DOT IDENTIFIER           {$$ = $1;
                                                         q = find_in_list(global_tail, nt[$1]->val);
                                                         if(q && q->info.type != 3) {
                                                         string v = gen_var();
-                                                        thecode[$$] = thecode[$1] ;
-                                                        thecode[$$] += "\t" + v + " := " + codes[$1] + " + offset(" + $3 + ","+ cl+ ")\n";
+                                                        thecode[$$] = thecode[$1] ; 
+                                                        thecode[$$] += "\t" + v + " := " + codes[$1] + " + " + to_string(q->info.offset) +"\n";
                                                         codes[$$] = "*"+v; 
                                                         }
                                                         } 
@@ -848,7 +912,7 @@ ClassDeclaration        : ClassHeader ClassBody                             {$$ 
                                                                                 temp = temp->next;
                                                                             }
                                                                             classdec.clear();
-                                                                            } 
+                                                                            field_dec_offset = 0;} 
                         | ClassHeader Super ClassBody                       {$$ = $1;
                                                                             pop_pglobal(each_symboltable[$2]);
                                                                             pop_global(each_symboltable[$3]);
@@ -874,7 +938,7 @@ ClassDeclaration        : ClassHeader ClassBody                             {$$ 
                                                                                     temp = temp->next;
                                                                                 }
                                                                                 classdec.clear();
-                                                                            }
+                                                                            field_dec_offset = 0;}
                         ;
 ClassHeader             : CLASS IDENTIFIER                              {$$ = node;
                                                                         node++;
@@ -928,6 +992,7 @@ FieldDeclaration        : Type VariableDeclarators SEMICOLON        {$$ = node;
                                                                         t1 = t1->next;
                                                                     }
                                                                     initializing = NULL;
+                                                                    build_field_offset(each_symboltable[$$]);
                                                                     push_global(each_symboltable[$$]);
                                                                     list* x = nt[$2];
                                                                     while(x){
@@ -946,6 +1011,7 @@ FieldDeclaration        : Type VariableDeclarators SEMICOLON        {$$ = node;
                                                                         t1 = t1->next;
                                                                     }
                                                                     initializing = NULL;
+                                                                    build_field_offset(each_symboltable[$$]);
                                                                     push_global(each_symboltable[$$]);  
                                                                     list* x = nt[$3];
                                                                     while(x){
@@ -997,18 +1063,19 @@ MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;
                                                                     sout = codes[$1]+":\n";
                                                                     nlist *temp = global_tail; string cl;
                                                                     cl = myclass(temp);
+                                                                    sout += "\tpush stackbase\n\tstackbase = stacktop\n";
                                                                     sout += thecode[$1] ;
                                                                     temp = pglobal;
                                                                     sout += "\tthis := popparam\n" ;
                                                                         for(int i=0; i< classdec.size(); i++){
                                                                             nlist* q= find_in_list(global_tail,strdup(classdec[i].c_str()));
                                                                             if(q && q->info.type != 3) {
-                                                                                sout = sout+ "\t"+classdec[i] + " := "+ " this + offset(" + classdec[i] +","+ cl +")\n"; 
+                                                                                sout = sout+ "\t"+classdec[i] + " := "+ " this + "+ to_string(q->info.offset) + "\n"; 
                                                                             } 
                                                                         }
                                                                         sout+= thecode[$2];
-                                                                    thecode[$$] = sout + "\tEndFunction\n";
-                                                                    }
+                                                                    thecode[$$] = sout + "\tpop stackbase\n\tEndFunction\n";
+                                                                    local_var_offset = 0;}
                         ;
 MethodHeader            : Type MethodDeclarator                     {$$ = node;
                                                                     node++;
@@ -1078,16 +1145,17 @@ ConstructorDeclaration  : ConstructorHeader ConstructorBody         {$$ = $1;
                                                                     sout = codes[$1]+":\n";
                                                                         nlist *temp = global_tail; string cl;
                                                                         cl = myclass(temp);
+                                                                        sout += "\tpush stackbase\n\tstackbase = stacktop\n";
                                                                         sout += thecode[$1] ;
                                                                         sout += "\tthis := popparam\n" ;
                                                                             for(int i=0; i< classdec.size(); i++){
                                                                                 nlist* q= find_in_list(global_tail,strdup(classdec[i].c_str()));
                                                                                 if(q && q->info.type != 3) {
-                                                                                    sout = sout+ "\t"+classdec[i] + " := "+ " this + offset(" + classdec[i] +","+ cl +")\n"; 
+                                                                                    sout = sout+ "\t"+classdec[i] + " := "+ " this + "+ to_string(q->info.offset) + "\n"; 
                                                                                 } 
                                                                             } 
                                                                             sout+= thecode[$2];
-                                                                        thecode[$$] = sout + "\tEndFunction\n";
+                                                                        thecode[$$] = sout + "\tpop stackbase\n\tEndFunction\n";
                                                                     }
                         ;
 ConstructorHeader       : ConstructorDeclarator                     {$$ = $1;
@@ -1220,8 +1288,15 @@ LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
                                                                         t1 = t1->next;
                                                                     }   
                                                                     initializing = NULL;
+                                                                    build_local_offset(each_symboltable[$$]);
                                                                     push_global(each_symboltable[$$]);
-                                                                    thecode[$$] = thecode[$2];}   
+                                                                    list *x = nt[$2];
+                                                                    while(x){
+                                                                        nlist *y = find_in_list(global_tail,x->val);
+                                                                        if(y) thecode[$$] = thecode[$$] + "\t" + y->info.name + " = -" + to_string(y->info.offset) + "(stackbase)\n"; 
+                                                                        x = x->next;
+                                                                    }
+                                                                    thecode[$$] += thecode[$2];}   
                             ;
 Statement               : StatementWithoutTrailingSubstatement      {$$ = $1;}   
                         | IfThenStatement                           {$$ = $1;}
@@ -1598,7 +1673,15 @@ ClassInstanceCreationExpression : NEW ClassType ONB CNB             {$$ = node;
                                                                     }
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
-                                                                    thecode[$$] = "\t"+v1 + " := " + "sizeof("+ codes[$2] +")\n"; 
+                                                                    nlist* p = clone(classtable[nt[$2]->val], false);
+                                                                    int sizeofclass = 0;
+                                                                    while(p!=NULL)
+                                                                    {
+                                                                        int o = give_size(p->info.datatype, p->info.dimension);
+                                                                        if(o!=-1) sizeofclass += o;
+                                                                        p = p->next;
+                                                                    }
+                                                                    thecode[$$] = "\t"+v1 + " := " + to_string(sizeofclass) + "\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
                                                                     thecode[$$] += "\tparam "+v2+"\n"+"\tcall "+codes[$2]+"."+codes[$2]+"\n";
@@ -1612,7 +1695,15 @@ ClassInstanceCreationExpression : NEW ClassType ONB CNB             {$$ = node;
                                                                     }
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
-                                                                    thecode[$$] = "\t"+v1 + " := " + "sizeof("+ codes[$2] +")\n"; 
+                                                                    nlist* p = clone(classtable[nt[$2]->val], false);
+                                                                    int sizeofclass = 0;
+                                                                    while(p!=NULL)
+                                                                    {
+                                                                        int o = give_size(p->info.datatype, p->info.dimension);
+                                                                        if(o!=-1) sizeofclass += o;
+                                                                        p = p->next;
+                                                                    }
+                                                                    thecode[$$] = "\t"+v1 + " := " + to_string(sizeofclass) + "\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
                                                                     thecode[$$] += thecode[$4] + "\tparam "+v2+"\n" ;
@@ -1634,7 +1725,7 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim, NULL, true);
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " := " + "sizeof("+ codes[$2] +") *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " := " + to_string(give_size(codes[$2],0)) + " *int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -1643,7 +1734,7 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim + nt[$4]->dim, NULL, true);
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " := " + "sizeof("+ codes[$2] +") *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " := " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -1654,7 +1745,7 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " := " + "sizeof("+ codes[$2] +") *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " := " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -1665,7 +1756,7 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " := " + "sizeof("+ codes[$2] +") *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " := " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -2398,7 +2489,7 @@ int main (int argc, char** argv) {
         return 0;
     }
     fout.open(argv[2]);
-    fout << "System.out.println:\n\ts := popparam\n\tprint s\n";
+    fout << "System.out.println:\n\tpush stackbase\n\tstackbase = stacktop\n\ts := popparam\n\tprint s\n\tpop stackbase\n\treturn\n\tEndFunction\n";
     FILE *infile = fopen(argv[1], "r");
     
     if (!infile) {
@@ -2410,7 +2501,6 @@ int main (int argc, char** argv) {
     fclose(infile);
 
     symboltables.push_back(Global);
-    // outfile.open("test.csv", ios::trunc);
 
     for(int i=0; i<symboltables.size(); i++)
     {
@@ -2434,12 +2524,12 @@ int main (int argc, char** argv) {
                     a = a->next;
                 }
             }
+            outfile << " " << temp->info.offset;
             outfile << endl;
             temp = temp->next;
         }
         outfile.close();
     }
-    // outfile.close();
     fout.close();
 	return 0;
 }
