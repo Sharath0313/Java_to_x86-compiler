@@ -2436,17 +2436,29 @@ Assignment              : LeftHandSide Assignment_Operators AssignmentExpression
                                                                                     if(types2.find(exptypes[$1])!=types2.end() && types2.find(exptypes[$3])!=types2.end()) 
                                                                                     {
                                                                                         if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " = " + codes[$3]+"\n";
-                                                                                        else if(codes[$2] != "&=") thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+"int "+codes[$3]+"\n";
-                                                                                        else thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n";
+                                                                                        else if(codes[$2] != "&=") {
+                                                                                            string v1 = gen_var();
+                                                                                            thecode[$$] += "\t" + v1 + " = " + codes[$1]+" "+codes[$2][0]+" int "+codes[$3]+"\n\t"+ codes[$1]+" = "+v1+"\n";
+                                                                                        }
+                                                                                        else {
+                                                                                            string v1 = gen_var();
+                                                                                            thecode[$$] += "\t" + v1 + " = " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n\t"+ codes[$1]+" = "+v1+"\n";
+                                                                                        }
                                                                                     }
                                                                                     else if(types3.find(exptypes[$1])!=types3.end() && types3.find(exptypes[$3])!=types3.end()) 
                                                                                     {
                                                                                         if(codes[$2] == "&=") yyerror("incompatible operand types");
                                                                                         else if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " = " + codes[$3]+"\n";
-                                                                                        else thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+"float "+codes[$3]+"\n";
+                                                                                        else {
+                                                                                            string v1 = gen_var();
+                                                                                            thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+" float "+codes[$3]+"\n\t"+ codes[$1]+" = "+v1+"\n";
+                                                                                        }
                                                                                     }
                                                                                     else if(exptypes[$1]==exptypes[$3]){ 
-                                                                                        if(codes[$2] == "&=" && exptypes[$1]=="boolean") thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n";
+                                                                                        if(codes[$2] == "&=" && exptypes[$1]=="boolean") {
+                                                                                            string v1 = gen_var();
+                                                                                            thecode[$$] += "\t" + v1 + " = " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n\t"+ codes[$1]+" = "+v1+"\n";
+                                                                                        }
                                                                                         else if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " = " + codes[$3]+"\n";
                                                                                         else yyerror("incompatible types for assignment");
                                                                                     }
@@ -2455,8 +2467,9 @@ Assignment              : LeftHandSide Assignment_Operators AssignmentExpression
                                                                                         else {
                                                                                             if(codes[$2] == "&=") yyerror("incompatible operand types");
                                                                                             string v= gen_var();
+                                                                                            string v1 = gen_var();
                                                                                             thecode[$$] += "\t" + v + " = cast_to_float " + codes[$3]+"\n";
-                                                                                            thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+"float "+v+"\n";
+                                                                                            thecode[$$] += "\t" + v1 + " = " + codes[$1]+" "+codes[$2][0]+" float "+v+"\n\t"+ codes[$1]+" = "+v1+"\n";
                                                                                         }
                                                                                     }
                                                                                     else yyerror("incompatible types for assignment (can also be lossy decomposition)");
