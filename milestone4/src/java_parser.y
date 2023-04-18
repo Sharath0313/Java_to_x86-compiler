@@ -109,6 +109,7 @@ map<int, string> identifier;
 vector<string> classdec;
 int field_dec_offset = 0;
 int local_var_offset = 0;
+map<string, int> width;
 
 void out(nlist* t){
     
@@ -449,32 +450,32 @@ nlist* find_in_list(nlist* tail, char* id){
     return NULL;
 }
 
-string gen_var() {return "t"+to_string(variable++) ;}
+string gen_var() {return "_t"+to_string(variable++) ;}
 string gen_label() {return "L"+to_string(label++) ;}
 
 void gen_exp_types (int a, int b, int r, char *op){
     string v= gen_var(),extra; 
     thecode[r] = thecode[a] + thecode[b];
-    if(!strcmp(op,"concatenate")) { thecode[r] += "\t" + v + ":= " + codes[a] + " " + op + " " + codes[b] + "\n"; exptypes[r] = "String";}
+    if(!strcmp(op,"concatenate")) { thecode[r] += "\t" + v + " = " + codes[a] + " " + op + " " + codes[b] + "\n"; exptypes[r] = "String";}
     else if(types2.find(exptypes[a])!=types2.end()){
         if(types2.find(exptypes[b])!=types2.end()) {
-            thecode[r] += "\t" + v + ":= " + codes[a] + " "+op+"int "+ codes[b]+"\n";
+            thecode[r] += "\t" + v + " = " + codes[a] + " "+op+" int "+ codes[b]+"\n";
             exptypes[r] = "int";
         }
         else { extra = gen_var();
-            thecode[r] += "\t" + extra + " := cast_to_float "+ codes[a] +"\n";
-            thecode[r] += "\t" + v + ":= " + extra + " "+op+"float "+ codes[b]+"\n";
+            thecode[r] += "\t" + extra + " = cast_to_float "+ codes[a] +"\n";
+            thecode[r] += "\t" + v + " = " + extra + " "+op+" float "+ codes[b]+"\n";
             exptypes[r] = "float";
         }
     }
     else{
         if(types2.find(exptypes[b])!=types2.end()) { extra = gen_var();
-            thecode[r] += "\t" + extra + " := cast_to_float "+ codes[b] +"\n";
-            thecode[r] += "\t" + v + ":= " + extra + " "+op+"float "+ codes[a]+"\n";
+            thecode[r] += "\t" + extra + " = cast_to_float "+ codes[b] +"\n";
+            thecode[r] += "\t" + v + " = " + extra + " "+op+" float "+ codes[a]+"\n";
             exptypes[r] = "float";
         }
         else { extra = gen_var();
-            thecode[r] += "\t" + v + ":= " + codes[a] + " "+op+"float "+ codes[b]+"\n";
+            thecode[r] += "\t" + v + " = " + codes[a] + " "+op+"float "+ codes[b]+"\n";
             exptypes[r] = "float";
         }
     }
@@ -563,9 +564,19 @@ bool cmplist(list* a, list* b){
 
 }
 
+bool widening(string n1, string n2){
+
+    if(width.find(n1)!=width.end() && width.find(n2)!=width.end()) return true;
+
+    return false;
+
+}
+
 void cmpsym(symrec n1, symrec n2){
 
-    if(strcmp(n1.datatype, n2.datatype) && strcmp(n1.datatype,"all") && strcmp(n2.datatype,"all")) yyerror("Datatype doesn't match");
+    if(strcmp(n1.datatype, n2.datatype) && strcmp(n1.datatype,"all") && strcmp(n2.datatype,"all")){
+        if ( !widening(n1.datatype, n2.datatype) ) yyerror("Datatype doesn't match");
+    }
     if(n1.dimension != n2.dimension) yyerror("Dimensions doesn't match");
     if(!cmplist(n1.args, n2.args)) yyerror("Arguments doesn't match");
     
@@ -592,7 +603,7 @@ void methodinvoc(int a,int r,int ind, string id){
         exptypes[r] = q->info.datatype;
         thecode[r] += "\tparam this\n";
         if(exptypes[r] != "void") {codes[r] = gen_var(); 
-            thecode[r] += "\t" + codes[r] + ":= call " + cl+ "."+ identifier[a] + "\n";}
+            thecode[r] += "\t" + codes[r] + "= call " + cl+ "."+ identifier[a] + "\n";}
         else {thecode[r] += "\tcall " + cl+ "."+ identifier[a] + "\n";}
     }
     else{ 
@@ -601,7 +612,7 @@ void methodinvoc(int a,int r,int ind, string id){
         exptypes[r] = temp->info.datatype;
         thecode[r] += "\tparam "+ codes[a] +"\n";
         if(exptypes[r] != "void") {codes[r] = gen_var();
-            thecode[r] += "\t" + codes[r] + ":= call "; thecode[r]= thecode[r] + q->info.datatype + "." + identifier[a] + "\n";}
+            thecode[r] += "\t" + codes[r] + "= call "; thecode[r]= thecode[r] + q->info.datatype + "." + identifier[a] + "\n";}
         else {
             thecode[r] += "\tcall "; thecode[r]= thecode[r] + q->info.datatype + "." + identifier[a] + "\n";
         }}
@@ -612,7 +623,7 @@ void methodinvoc(int a,int r,int ind, string id){
         if(ind==2) cl= parents[myclass(global_tail)] ;
         thecode[r] += "\tparam "+ codes[a] +"\n";
         if(exptypes[r] != "void") {codes[r] = gen_var();
-            thecode[r] += "\t" + codes[r] + ":= call "; thecode[r]= thecode[r] + cl+ "." + id + "\n";}
+            thecode[r] += "\t" + codes[r] + "= call "; thecode[r]= thecode[r] + cl+ "." + id + "\n";}
         else {
             thecode[r] += "\tcall "; thecode[r]= thecode[r] + cl + "." + id + "\n";
         }
@@ -668,8 +679,8 @@ void build_local_offset(nlist* nl){
         int p = give_size(temp->info.datatype, temp->info.dimension);
         if(temp->info.offset == -1 && temp->info.type!=3 && p!=-1)
         {
-            temp->info.offset = local_var_offset;
             local_var_offset += p;
+            temp->info.offset = local_var_offset;
         }
         temp = temp->next;
     }
@@ -837,7 +848,7 @@ MultipleName            : Name DOT IDENTIFIER           {$$ = $1;
                                                         if(q && q->info.type != 3) {
                                                         string v = gen_var();
                                                         thecode[$$] = thecode[$1] ; 
-                                                        thecode[$$] += "\t" + v + " := " + codes[$1] + " + " + to_string(q->info.offset) +"\n";
+                                                        thecode[$$] += "\t" + v + " = " + codes[$1] + " + " + to_string(q->info.offset) +"\n";
                                                         codes[$$] = "*"+v; 
                                                         }
                                                         } 
@@ -986,7 +997,11 @@ FieldDeclaration        : Type VariableDeclarators SEMICOLON        {$$ = node;
                                                                     nlist* t2 = initializing;
                                                                     while(t2!=NULL)
                                                                     {
-                                                                        if(strcmp(t2->info.datatype, "all") && (strcmp(t2->info.datatype,t1->info.datatype) || (t2->info.dimension!=t1->info.dimension))) yyerror("Type doesn't match.");
+                                                                        if(strcmp(t2->info.datatype, "all") && (strcmp(t2->info.datatype,t1->info.datatype) || (t2->info.dimension!=t1->info.dimension))){
+                                                                            if(!widening(t1->info.datatype, t2->info.datatype) && (width[t1->info.datatype] < width[t2->info.datatype])) {
+                                                                                yyerror("Type doesn't match.");
+                                                                            }
+                                                                        }
 
                                                                         t2 = t2->next;
                                                                         t1 = t1->next;
@@ -1005,7 +1020,11 @@ FieldDeclaration        : Type VariableDeclarators SEMICOLON        {$$ = node;
                                                                     nlist* t2 = initializing;
                                                                     while(t2!=NULL)
                                                                     {
-                                                                        if(strcmp(t2->info.datatype, "all") && (strcmp(t2->info.datatype,t1->info.datatype) || (t2->info.dimension!=t1->info.dimension))) yyerror("Type doesn't match.");
+                                                                        if(strcmp(t2->info.datatype, "all") && (strcmp(t2->info.datatype,t1->info.datatype) || (t2->info.dimension!=t1->info.dimension))) {
+                                                                            if(!widening(t1->info.datatype, t2->info.datatype) && (width[t1->info.datatype] < width[t2->info.datatype])) {
+                                                                                yyerror("Type doesn't match.");
+                                                                            }
+                                                                        }
 
                                                                         t2 = t2->next;
                                                                         t1 = t1->next;
@@ -1030,7 +1049,7 @@ VariableDeclarator      : VariableDeclaratorId                          {$$ = $1
                                                                         each_symrec[$$] = create_symrec("", "all", yylineno, -1, -1, NULL, true);}
                         | VariableDeclaratorId EQ VariableInitializer   {$$ = $1;
                                                                         each_symrec[$$] = each_symrec[$3];
-                                                                        if(nt[$1]->dim == 0) {thecode[$$] = thecode[$3]+"\t"+codes[$1]+" := "+codes[$3]+"\n";}
+                                                                        if(nt[$1]->dim == 0) {thecode[$$] = thecode[$3]+"\t"+codes[$1]+" = "+codes[$3]+"\n";}
                                                                         }
                         ;
 VariableDeclaratorId    : IDENTIFIER                                    {$$ = node;
@@ -1066,11 +1085,11 @@ MethodDeclaration       : MethodHeader MethodBody                   {$$ = $1;
                                                                     sout += "\tpush stackbase\n\tstackbase = stacktop\n";
                                                                     sout += thecode[$1] ;
                                                                     temp = pglobal;
-                                                                    sout += "\tthis := popparam\n" ;
+                                                                    sout += "\tthis = popparam\n" ;
                                                                         for(int i=0; i< classdec.size(); i++){
                                                                             nlist* q= find_in_list(global_tail,strdup(classdec[i].c_str()));
                                                                             if(q && q->info.type != 3) {
-                                                                                sout = sout+ "\t"+classdec[i] + " := "+ " this + "+ to_string(q->info.offset) + "\n"; 
+                                                                                sout = sout+ "\t"+classdec[i] + " = "+ " this + "+ to_string(q->info.offset) + "\n"; 
                                                                             } 
                                                                         }
                                                                         sout+= thecode[$2];
@@ -1117,11 +1136,11 @@ MethodDeclarator        : SingleName ONB CNB                            {$$ = $1
                                                                         thecode[$$] = thecode[$3]; }
                         ;
 FormalParameterList     : FormalParameter                               {$$ = $1;
-                                                                        thecode[$$] = "\t"+ codes[$1] + " := popparam\n";}
+                                                                        thecode[$$] = "\t"+ codes[$1] + " = popparam\n";}
                         | FormalParameterList COMMA FormalParameter     {merge(nt[$1],nt[$3]);
                                                                         $$ = $1;
                                                                         mergen(each_symboltable[$1],each_symboltable[$3]);
-                                                                        thecode[$$] = thecode[$1] + "\t"+ codes[$3] + " := popparam\n";}
+                                                                        thecode[$$] = thecode[$1] + "\t"+ codes[$3] + " = popparam\n";}
                         ;
 FormalParameter         : Type VariableDeclaratorId                 {$$ = node;
                                                                     node++;
@@ -1147,11 +1166,11 @@ ConstructorDeclaration  : ConstructorHeader ConstructorBody         {$$ = $1;
                                                                         cl = myclass(temp);
                                                                         sout += "\tpush stackbase\n\tstackbase = stacktop\n";
                                                                         sout += thecode[$1] ;
-                                                                        sout += "\tthis := popparam\n" ;
+                                                                        sout += "\tthis = popparam\n" ;
                                                                             for(int i=0; i< classdec.size(); i++){
                                                                                 nlist* q= find_in_list(global_tail,strdup(classdec[i].c_str()));
                                                                                 if(q && q->info.type != 3) {
-                                                                                    sout = sout+ "\t"+classdec[i] + " := "+ " this + "+ to_string(q->info.offset) + "\n"; 
+                                                                                    sout = sout+ "\t"+classdec[i] + " = "+ " this + "+ to_string(q->info.offset) + "\n"; 
                                                                                 } 
                                                                             } 
                                                                             sout+= thecode[$2];
@@ -1282,8 +1301,11 @@ LocalVariableDeclaration    : Type VariableDeclarators              {$$ = node;
                                                                     nlist* t2 = initializing;
                                                                     while(t2!=NULL)
                                                                     {
-                                                                        if(strcmp(t2->info.datatype, "all") && (strcmp(t2->info.datatype,t1->info.datatype) || (t2->info.dimension!=t1->info.dimension))) yyerror("Type doesn't match.");
-                                                                    
+                                                                        if(strcmp(t2->info.datatype, "all") && (strcmp(t2->info.datatype,t1->info.datatype) || (t2->info.dimension!=t1->info.dimension))) {
+                                                                            if(!widening(t1->info.datatype, t2->info.datatype) && (width[t1->info.datatype] < width[t2->info.datatype])) {
+                                                                                yyerror("Type doesn't match.");
+                                                                            }
+                                                                        }
                                                                         t2 = t2->next;
                                                                         t1 = t1->next;
                                                                     }   
@@ -1681,9 +1703,9 @@ ClassInstanceCreationExpression : NEW ClassType ONB CNB             {$$ = node;
                                                                         if(o!=-1) sizeofclass += o;
                                                                         p = p->next;
                                                                     }
-                                                                    thecode[$$] = "\t"+v1 + " := " + to_string(sizeofclass) + "\n"; 
+                                                                    thecode[$$] = "\t"+v1 + " = " + to_string(sizeofclass) + "\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
-                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     thecode[$$] += "\tparam "+v2+"\n"+"\tcall "+codes[$2]+"."+codes[$2]+"\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];}  
                                 | NEW ClassType ONB ArgumentList CNB    {$$ = node;
@@ -1703,9 +1725,9 @@ ClassInstanceCreationExpression : NEW ClassType ONB CNB             {$$ = node;
                                                                         if(o!=-1) sizeofclass += o;
                                                                         p = p->next;
                                                                     }
-                                                                    thecode[$$] = "\t"+v1 + " := " + to_string(sizeofclass) + "\n"; 
+                                                                    thecode[$$] = "\t"+v1 + " = " + to_string(sizeofclass) + "\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
-                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     thecode[$$] += thecode[$4] + "\tparam "+v2+"\n" ;
                                                                     thecode[$$] += "\tcall "+codes[$2]+"."+codes[$2]+"\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -1725,18 +1747,18 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim, NULL, true);
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " := " + to_string(give_size(codes[$2],0)) + " *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0)) + " *int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
-                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
                         | NEW PrimitiveType DimExprs Dims           {$$ = node;
                                                                     node++;
                                                                     each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim + nt[$4]->dim, NULL, true);
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " := " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
-                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
                         | NEW ClassOrInterfaceType DimExprs         {$$ = node;
                                                                     node++;
@@ -1745,9 +1767,9 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " := " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
-                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
                         | NEW ClassOrInterfaceType DimExprs Dims    {$$ = node;
                                                                     node++;
@@ -1756,9 +1778,9 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " := " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
-                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " := popparam\n";
+                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
                         ;
 DimExprs                : DimExpr                                   {$$ = node;
@@ -1768,7 +1790,7 @@ DimExprs                : DimExpr                                   {$$ = node;
                                                                     nt[$$]->dim++;
                                                                     string v = gen_var();
                                                                     thecode[$$] = thecode[$1] + thecode[$2];
-                                                                    thecode[$$] += "\t" + v + " := " +codes[$1]+ " *int " + codes[$2] + "\n";
+                                                                    thecode[$$] += "\t" + v + " = " +codes[$1]+ " *int " + codes[$2] + "\n";
                                                                     codes[$$] = v;}
                         ;
 DimExpr                 : OSB Expression CSB                        {if(strcmp(each_symrec[$2].datatype, "int")) yyerror("Expected a int");
@@ -1796,7 +1818,7 @@ FieldAccess             : Primary DOT IDENTIFIER                    {$$ = node;
                                                                     else yyerror("Class not found.");
                                                                     string v= gen_var();
                                                                     thecode[$$] = thecode[$1];
-                                                                    thecode[$$] += "\t" + v + " := "+codes[$1]+" + offset("+$3+","+ exptypes[$1]+")\n";
+                                                                    thecode[$$] += "\t" + v + " = "+codes[$1]+" + offset("+$3+","+ exptypes[$1]+")\n";
                                                                     codes[$$]= v;} 
                         | SUPER DOT IDENTIFIER                      {$$ = node;
                                                                     node++;
@@ -1919,7 +1941,7 @@ ArrayAccess             : Name OSB Expression CSB                   {$$ = node;
                                                                     else yyerror("Variable not found");
                                                                     string v = gen_var();
                                                                     thecode[$$] = thecode[$1]+thecode[$3] ;
-                                                                    thecode[$$] += "\t" + v + " := "+ nt[$1]->val +" + "+codes[$3]+"\n";
+                                                                    thecode[$$] += "\t" + v + " = "+ nt[$1]->val +" + "+codes[$3]+"\n";
                                                                     codes[$$] = "*"+v; 
                                                                     exptypes[$$] = n->info.datatype;}
                         | PrimaryNoNewArray OSB Expression CSB      {$$ = $1;
@@ -1928,7 +1950,7 @@ ArrayAccess             : Name OSB Expression CSB                   {$$ = node;
                                                                     else yyerror("Array dimensions doesn't match.");
                                                                     string v = gen_var();
                                                                     thecode[$$] = thecode[$1] + thecode[$3] ;
-                                                                    thecode[$$] += "\t" + v + " := "+ codes[$1] +"+ "+codes[$3]+"\n";
+                                                                    thecode[$$] += "\t" + v + " = "+ codes[$1] +"+ "+codes[$3]+"\n";
                                                                     codes[$$] = "*"+v;}
                         ;
 PostfixExpression       : Primary                                   {$$=$1;}
@@ -1954,12 +1976,12 @@ PostIncrementExpression : PostfixExpression INC                     {$$ = node;
                                                                     else yyerror("Expected a Primitive datatype.");
                                                                     string v= gen_var();
                                                                     thecode[$$] = thecode[$1] ;
-                                                                    thecode[$$]+= "\t"+v+" := "+codes[$1]+"\n";
+                                                                    thecode[$$]+= "\t"+v+" = "+codes[$1]+"\n";
                                                                     if(types2.find(exptypes[$1]) != types2.end()){
-                                                                    thecode[$$]+= "\t"+codes[$1]+":= "+codes[$1]+" +int 1"+"\n";
+                                                                    thecode[$$]+= "\t"+codes[$1]+" = "+codes[$1]+" + int 1"+"\n";
                                                                     }
                                                                     else if(types3.find(exptypes[$1]) != types3.end()){
-                                                                    thecode[$$]+= "\t"+codes[$1]+":= "+codes[$1]+" +float 1"+"\n";
+                                                                    thecode[$$]+= "\t"+codes[$1]+" = "+codes[$1]+" +float 1"+"\n";
                                                                     }
                                                                     else{
                                                                         yyerror("incompatible operand types for ++");
@@ -1977,12 +1999,12 @@ PostDecrementExpression : PostfixExpression DEC                     {$$ = node;
                                                                     else yyerror("Expected a Primitive datatype.");
                                                                     string v= gen_var();
                                                                     thecode[$$] = thecode[$1] ;
-                                                                    thecode[$$]+= "\t"+v+" := "+codes[$1]+"\n";
+                                                                    thecode[$$]+= "\t"+v+" = "+codes[$1]+"\n";
                                                                     if(types2.find(exptypes[$1]) != types2.end()){
-                                                                    thecode[$$]+= "\t"+codes[$1]+":= "+codes[$1]+" -int 1"+"\n";
+                                                                    thecode[$$]+= "\t"+codes[$1]+" = "+codes[$1]+" -int 1"+"\n";
                                                                     }
                                                                     else if(types3.find(exptypes[$1]) != types3.end()){
-                                                                    thecode[$$]+= "\t"+codes[$1]+":= "+codes[$1]+" -float 1"+"\n";
+                                                                    thecode[$$]+= "\t"+codes[$1]+" = "+codes[$1]+" -float 1"+"\n";
                                                                     }
                                                                     else{
                                                                         yyerror("incompatible operand types for --");
@@ -2007,7 +2029,7 @@ UnaryExpression         : PreIncrementExpression                    {$$ = $1;}
                                                                     if(types1.find(exptypes[$2]) != types1.end()){
                                                                     string v= gen_var();
                                                                     thecode[$$] = thecode[$2] ;
-                                                                    thecode[$$] += "\t"+v+":= "+" -"+codes[$2]+"\n";
+                                                                    thecode[$$] += "\t"+v+" = "+" -"+codes[$2]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = exptypes[$2];
                                                                     if(exptypes[$2]=="long"||exptypes[$2]=="char") exptypes[$$] = "int";
@@ -2021,10 +2043,10 @@ PreIncrementExpression  : INC UnaryExpression                       {$$ = node;
                                                                     each_symboltable[$$] = NULL;
                                                                     thecode[$$] = thecode[$2] ;
                                                                     if(types2.find(exptypes[$2]) != types2.end()){
-                                                                        thecode[$$] += "\t"+codes[$2]+":= "+codes[$2]+" +int 1"+"\n";
+                                                                        thecode[$$] += "\t"+codes[$2]+" = "+codes[$2]+" + int 1"+"\n";
                                                                     } 
                                                                     else if(types3.find(exptypes[$2]) != types3.end()){
-                                                                        thecode[$$] += "\t"+codes[$2]+":= "+codes[$2]+" +float 1"+"\n";
+                                                                        thecode[$$] += "\t"+codes[$2]+" = "+codes[$2]+" +float 1"+"\n";
                                                                     } 
                                                                     else yyerror("incompatible operand type for ++");
                                                                         codes[$$] = codes[$2];
@@ -2040,10 +2062,10 @@ PreDecrementExpression  : DEC UnaryExpression                       {$$ = node;
                                                                     each_symboltable[$$] = NULL;
                                                                     thecode[$$] = thecode[$2] ;
                                                                     if(types2.find(exptypes[$2]) != types2.end()){
-                                                                        thecode[$$] += "\t"+codes[$2]+":= "+codes[$2]+" -int 1"+"\n";
+                                                                        thecode[$$] += "\t"+codes[$2]+" = "+codes[$2]+" -int 1"+"\n";
                                                                     } 
                                                                     else if(types3.find(exptypes[$2]) != types3.end()){
-                                                                        thecode[$$] += "\t"+codes[$2]+":= "+codes[$2]+" -float 1"+"\n";
+                                                                        thecode[$$] += "\t"+codes[$2]+" = "+codes[$2]+" -float 1"+"\n";
                                                                     } 
                                                                     else yyerror("incompatible operand type for --");
                                                                         codes[$$] = codes[$2];
@@ -2060,7 +2082,7 @@ UnaryExpressionNotPlusMinus : PostfixExpression                     {$$ = $1;}
                                                                     if(types2.find(exptypes[$2]) == types2.end()) yyerror("incompatible operand type");
                                                                     string v= gen_var();
                                                                     thecode[$$] = thecode[$2] ;
-                                                                    thecode[$$] += "\t"+v+":= "+"~ "+codes[$2]+"\n";
+                                                                    thecode[$$] += "\t"+v+" = "+"~ "+codes[$2]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = exptypes[$2];
                                                                     if(!strcmp(each_symrec[$2].datatype,"int")) each_symrec[$$] = each_symrec[$2];
@@ -2070,7 +2092,7 @@ UnaryExpressionNotPlusMinus : PostfixExpression                     {$$ = $1;}
                                                                     if(exptypes[$2]!= "boolean") yyerror("incompatible operand type");
                                                                     string v= gen_var();
                                                                     thecode[$$] = thecode[$2] ;
-                                                                    thecode[$$] += "\t"+v+":= "+"! "+codes[$2]+"\n";
+                                                                    thecode[$$] += "\t"+v+" = "+"! "+codes[$2]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = exptypes[$2];
                                                                     if(!strcmp(each_symrec[$2].datatype,"boolean")) each_symrec[$$] = each_symrec[$2];
@@ -2083,7 +2105,7 @@ CastExpression          : ONB PrimitiveType CNB UnaryExpression         {$$ = no
                                                                             if(types1.find(exptypes[$4]) != types1.end()){
                                                                         string v= gen_var();
                                                                         thecode[$$] =  thecode[$4];
-                                                                        thecode[$$] += "\t"+v+":= "+"cast_to_"+codes[$2]+" "+codes[$4]+"\n";
+                                                                        thecode[$$] += "\t"+v+" = "+"cast_to_"+codes[$2]+" "+codes[$4]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = exptypes[$2];
                                                                             }
@@ -2189,7 +2211,7 @@ ShiftExpression         : AdditiveExpression                            {$$ = $1
                                                                             yyerror("incompatible operand types for SHIFT");
                                                                         string v= gen_var();
                                                                         thecode[$$] = thecode[$1] + thecode[$3];
-                                                                        thecode[$$] += "\t" + v + ":="  + codes[$1] +" "+$2+" " + codes[$3]+"\n";
+                                                                        thecode[$$] += "\t" + v + "="  + codes[$1] +" "+$2+" " + codes[$3]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = "int";
                                                                         if(types.find(each_symrec[$1].datatype)!=types.end()) {
@@ -2212,7 +2234,7 @@ RelationalExpression    : ShiftExpression                               {$$ = $1
                                                                             yyerror("incompatible operand types for relational operators");
                                                                         string v= gen_var();
                                                                         thecode[$$] = thecode[$1] + thecode[$3];
-                                                                        thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
+                                                                        thecode[$$] += "\t" + v + " = " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = "boolean";
                                                                         if(types.find(each_symrec[$1].datatype)!=types.end()) {
@@ -2233,7 +2255,7 @@ RelationalExpression    : ShiftExpression                               {$$ = $1
                                                                             yyerror("incompatible operand types for instanceof");
                                                                         string v= gen_var();
                                                                         thecode[$$] = thecode[$1] + thecode[$3];
-                                                                        thecode[$$] += "\t" + v + ":=" + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
+                                                                        thecode[$$] += "\t" + v + "=" + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = "boolean";
                                                                         if(types.find(each_symrec[$1].datatype)!=types.end()) {
@@ -2257,7 +2279,7 @@ EqualityExpression      : RelationalExpression                              {$$ 
                                                                                 else yyerror("incompatible operand types for ==");}
                                                                             thecode[$$] = thecode[$1] + thecode[$3];
                                                                             string v= gen_var();
-                                                                            thecode[$$] += "\t" + v + ":= " + codes[$1] + " == " + codes[$3]+"\n";
+                                                                            thecode[$$] += "\t" + v + " = " + codes[$1] + " == " + codes[$3]+"\n";
                                                                             codes[$$] = v;
                                                                             exptypes[$$] = "boolean";
                                                                             cmpsym(each_symrec[$1],each_symrec[$3]);
@@ -2271,7 +2293,7 @@ EqualityExpression      : RelationalExpression                              {$$ 
                                                                                 else yyerror("incompatible operand types for !=");}
                                                                             thecode[$$] = thecode[$1] + thecode[$3];
                                                                             string v= gen_var();
-                                                                            thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
+                                                                            thecode[$$] += "\t" + v + " = " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                             codes[$$] = v;
                                                                             exptypes[$$] = "boolean";
                                                                             cmpsym(each_symrec[$1],each_symrec[$3]);
@@ -2287,7 +2309,7 @@ AndExpression           : EqualityExpression                        {$$ = $1;}
                                                                         if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
                                                                         else yyerror("incompatible operand types for &");}
                                                                     string v= gen_var();
-                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
+                                                                    thecode[$$] += "\t" + v + " = " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     if(types.find(each_symrec[$1].datatype)!=types.end()) {
                                                                         if(types[each_symrec[$1].datatype]==1){
@@ -2310,7 +2332,7 @@ ExclusiveOrExpression   : AndExpression                             {$$ = $1;}
                                                                         if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
                                                                         else yyerror("incompatible operand types for ^");}
                                                                     string v= gen_var();
-                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
+                                                                    thecode[$$] += "\t" + v + " = " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     if(types.find(each_symrec[$1].datatype)!=types.end()) {
                                                                         if(types[each_symrec[$1].datatype]==1){
@@ -2333,7 +2355,7 @@ InclusiveOrExpression   : ExclusiveOrExpression                     {$$ =$1;}
                                                                         if(exptypes[$1]== "boolean" && exptypes[$3]== "boolean") exptypes[$$] = "boolean";
                                                                         else yyerror("incompatible operand types for |");}
                                                                     string v= gen_var();
-                                                                    thecode[$$] += "\t" + v + ":= " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
+                                                                    thecode[$$] += "\t" + v + " = " + codes[$1] + " "+ $2 +" " + codes[$3]+"\n";
                                                                     codes[$$] = v;
                                                                     if(types.find(each_symrec[$1].datatype)!=types.end()) {
                                                                                 if(types[each_symrec[$1].datatype]==1){
@@ -2359,9 +2381,9 @@ ConditionalAndExpression    : InclusiveOrExpression                 {$$ = $1;}
                                                                                     thecode[$$] = thecode[$$]+ "\t" + "ifFalse "+ codes[$1] +" goto "+t+"\n";
                                                                                     thecode[$$] += thecode[$3] ;
                                                                                     thecode[$$] = thecode[$$]+ "\t" + "ifFalse "+ codes[$3] +" goto "+t+"\n";
-                                                                                    thecode[$$] = thecode[$$]+ "\t" + v + ":= true" +"\n";
+                                                                                    thecode[$$] = thecode[$$]+ "\t" + v + "= true" +"\n";
                                                                                     thecode[$$] = thecode[$$]+ "\tgoto "+ f +"\n";
-                                                                                    thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + ":= false" +"\n";
+                                                                                    thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + "= false" +"\n";
                                                                                     thecode[$$] = thecode[$$]+ f+ ":\n" ;
                                                                                     codes[$$] = v; exptypes[$$]= "boolean";
                                                                                     cmpsym(each_symrec[$1],each_symrec[$3]);
@@ -2380,9 +2402,9 @@ ConditionalOrExpression : ConditionalAndExpression                              
                                                                                             thecode[$$] = thecode[$$]+"\t" + "if "+ codes[$1] +" goto "+t+"\n";
                                                                                             thecode[$$] += thecode[$3] ;
                                                                                             thecode[$$] = thecode[$$]+ "\t" + "if "+ codes[$3] +" goto "+t+"\n";
-                                                                                            thecode[$$] = thecode[$$]+ "\t" + v + ":= false" +"\n";
+                                                                                            thecode[$$] = thecode[$$]+ "\t" + v + "= false" +"\n";
                                                                                             thecode[$$] = thecode[$$]+ "\tgoto "+ f +"\n";
-                                                                                            thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + ":= true" +"\n";
+                                                                                            thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + "= true" +"\n";
                                                                                             thecode[$$] = thecode[$$]+ f+ ":\n" ;
                                                                                             codes[$$] = v;  exptypes[$$]= "boolean";
                                                                                             cmpsym(each_symrec[$1],each_symrec[$3]);
@@ -2394,9 +2416,9 @@ ConditionalExpression   : ConditionalOrExpression                               
                                                                                             string t = gen_label(), f= gen_label(), v= gen_var();
                                                                                             thecode[$$] = thecode[$1] + thecode[$3] + thecode[$5];
                                                                                             thecode[$$] = thecode[$$]+ "\t"+"if "+codes[$1]+" goto "+t+"\n";
-                                                                                            thecode[$$] = thecode[$$]+ "\t"+v+":= "+codes[$5]+"\n";
+                                                                                            thecode[$$] = thecode[$$]+ "\t"+v+" = "+codes[$5]+"\n";
                                                                                             thecode[$$] = thecode[$$]+ "\t"+"goto "+f+"\n";
-                                                                                            thecode[$$] = thecode[$$]+ t+":\n\t"+v+":= "+codes[$3]+"\n";
+                                                                                            thecode[$$] = thecode[$$]+ t+":\n\t"+v+" = "+codes[$3]+"\n";
                                                                                             thecode[$$] = thecode[$$]+ f+":\n";
                                                                                             codes[$$] = v;
                                                                                             exptypes[$$] = "int";
@@ -2413,28 +2435,28 @@ Assignment              : LeftHandSide Assignment_Operators AssignmentExpression
                                                                                     thecode[$$] = thecode[$1] + thecode[$3];
                                                                                     if(types2.find(exptypes[$1])!=types2.end() && types2.find(exptypes[$3])!=types2.end()) 
                                                                                     {
-                                                                                        if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " := " + codes[$3]+"\n";
-                                                                                        else if(codes[$2] != "&=") thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+"int "+codes[$3]+"\n";
-                                                                                        else thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n";
+                                                                                        if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " = " + codes[$3]+"\n";
+                                                                                        else if(codes[$2] != "&=") thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+"int "+codes[$3]+"\n";
+                                                                                        else thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n";
                                                                                     }
                                                                                     else if(types3.find(exptypes[$1])!=types3.end() && types3.find(exptypes[$3])!=types3.end()) 
                                                                                     {
                                                                                         if(codes[$2] == "&=") yyerror("incompatible operand types");
-                                                                                        else if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " := " + codes[$3]+"\n";
-                                                                                        else thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+"float "+codes[$3]+"\n";
+                                                                                        else if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " = " + codes[$3]+"\n";
+                                                                                        else thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+"float "+codes[$3]+"\n";
                                                                                     }
                                                                                     else if(exptypes[$1]==exptypes[$3]){ 
-                                                                                        if(codes[$2] == "&=" && exptypes[$1]=="boolean") thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n";
-                                                                                        else if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " := " + codes[$3]+"\n";
+                                                                                        if(codes[$2] == "&=" && exptypes[$1]=="boolean") thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+" "+codes[$3]+"\n";
+                                                                                        else if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " = " + codes[$3]+"\n";
                                                                                         else yyerror("incompatible types for assignment");
                                                                                     }
                                                                                     else if(types3.find(exptypes[$1])!=types3.end() && types2.find(exptypes[$3])!=types2.end()){
-                                                                                        if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " := cast_to_float " + codes[$3]+"\n";
+                                                                                        if(codes[$2]== "=") thecode[$$] += "\t" + codes[$1] + " = cast_to_float " + codes[$3]+"\n";
                                                                                         else {
                                                                                             if(codes[$2] == "&=") yyerror("incompatible operand types");
                                                                                             string v= gen_var();
-                                                                                            thecode[$$] += "\t" + v + " := cast_to_float " + codes[$3]+"\n";
-                                                                                            thecode[$$] += "\t" + codes[$1] + " := " + codes[$1]+" "+codes[$2][0]+"float "+v+"\n";
+                                                                                            thecode[$$] += "\t" + v + " = cast_to_float " + codes[$3]+"\n";
+                                                                                            thecode[$$] += "\t" + codes[$1] + " = " + codes[$1]+" "+codes[$2][0]+"float "+v+"\n";
                                                                                         }
                                                                                     }
                                                                                     else yyerror("incompatible types for assignment (can also be lossy decomposition)");
@@ -2483,13 +2505,19 @@ int main (int argc, char** argv) {
     types["void"] = 2;
     types["boolean"] = 2;
 
+    width["char"] = 1;
+    width["int"] = 2;
+    width["long"] = 3;
+    width["float"] = 4;
+    width["double"] = 5;
+
     if(argc!=3)
     {
         cout << "The syntax for execution is: program input_filename output_filename" << "\n";
         return 0;
     }
     fout.open(argv[2]);
-    fout << "System.out.println:\n\tpush stackbase\n\tstackbase = stacktop\n\ts := popparam\n\tprint s\n\tpop stackbase\n\treturn\n\tEndFunction\n";
+    fout << "System.out.println:\n\tpush stackbase\n\tstackbase = stacktop\n\ts = popparam\n\tprint s\n\tpop stackbase\n\treturn\n\tEndFunction\n";
     FILE *infile = fopen(argv[1], "r");
     
     if (!infile) {
