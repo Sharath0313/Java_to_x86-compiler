@@ -451,7 +451,7 @@ nlist* find_in_list(nlist* tail, char* id){
 }
 
 string gen_var() {return "_t"+to_string(variable++) ;}
-string gen_label() {return "L"+to_string(label++) ;}
+string gen_label() {return ".L"+to_string(label++) ;}
 
 void gen_exp_types (int a, int b, int r, char *op){
     string v= gen_var(),extra; 
@@ -1747,7 +1747,7 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim, NULL, true);
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0)) + " *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0)) + " * int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -1756,7 +1756,7 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim + nt[$4]->dim, NULL, true);
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " * int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -1767,7 +1767,7 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " * int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -1778,7 +1778,7 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " *int "+ codes[$3] +"\n"; 
+                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " * int "+ codes[$3] +"\n"; 
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
@@ -1790,7 +1790,7 @@ DimExprs                : DimExpr                                   {$$ = node;
                                                                     nt[$$]->dim++;
                                                                     string v = gen_var();
                                                                     thecode[$$] = thecode[$1] + thecode[$2];
-                                                                    thecode[$$] += "\t" + v + " = " +codes[$1]+ " *int " + codes[$2] + "\n";
+                                                                    thecode[$$] += "\t" + v + " = " +codes[$1]+ " * int " + codes[$2] + "\n";
                                                                     codes[$$] = v;}
                         ;
 DimExpr                 : OSB Expression CSB                        {if(strcmp(each_symrec[$2].datatype, "int")) yyerror("Expected a int");
@@ -2001,10 +2001,10 @@ PostDecrementExpression : PostfixExpression DEC                     {$$ = node;
                                                                     thecode[$$] = thecode[$1] ;
                                                                     thecode[$$]+= "\t"+v+" = "+codes[$1]+"\n";
                                                                     if(types2.find(exptypes[$1]) != types2.end()){
-                                                                    thecode[$$]+= "\t"+codes[$1]+" = "+codes[$1]+" -int 1"+"\n";
+                                                                    thecode[$$]+= "\t"+codes[$1]+" = "+codes[$1]+" - int 1"+"\n";
                                                                     }
                                                                     else if(types3.find(exptypes[$1]) != types3.end()){
-                                                                    thecode[$$]+= "\t"+codes[$1]+" = "+codes[$1]+" -float 1"+"\n";
+                                                                    thecode[$$]+= "\t"+codes[$1]+" = "+codes[$1]+" - float 1"+"\n";
                                                                     }
                                                                     else{
                                                                         yyerror("incompatible operand types for --");
@@ -2029,7 +2029,7 @@ UnaryExpression         : PreIncrementExpression                    {$$ = $1;}
                                                                     if(types1.find(exptypes[$2]) != types1.end()){
                                                                     string v= gen_var();
                                                                     thecode[$$] = thecode[$2] ;
-                                                                    thecode[$$] += "\t"+v+" = "+" -"+codes[$2]+"\n";
+                                                                    thecode[$$] += "\t"+v+" = "+"- "+codes[$2]+"\n";
                                                                     codes[$$] = v;
                                                                     exptypes[$$] = exptypes[$2];
                                                                     if(exptypes[$2]=="long"||exptypes[$2]=="char") exptypes[$$] = "int";
@@ -2062,10 +2062,10 @@ PreDecrementExpression  : DEC UnaryExpression                       {$$ = node;
                                                                     each_symboltable[$$] = NULL;
                                                                     thecode[$$] = thecode[$2] ;
                                                                     if(types2.find(exptypes[$2]) != types2.end()){
-                                                                        thecode[$$] += "\t"+codes[$2]+" = "+codes[$2]+" -int 1"+"\n";
+                                                                        thecode[$$] += "\t"+codes[$2]+" = "+codes[$2]+" - int 1"+"\n";
                                                                     } 
                                                                     else if(types3.find(exptypes[$2]) != types3.end()){
-                                                                        thecode[$$] += "\t"+codes[$2]+" = "+codes[$2]+" -float 1"+"\n";
+                                                                        thecode[$$] += "\t"+codes[$2]+" = "+codes[$2]+" - float 1"+"\n";
                                                                     } 
                                                                     else yyerror("incompatible operand type for --");
                                                                         codes[$$] = codes[$2];
@@ -2211,7 +2211,7 @@ ShiftExpression         : AdditiveExpression                            {$$ = $1
                                                                             yyerror("incompatible operand types for SHIFT");
                                                                         string v= gen_var();
                                                                         thecode[$$] = thecode[$1] + thecode[$3];
-                                                                        thecode[$$] += "\t" + v + "="  + codes[$1] +" "+$2+" " + codes[$3]+"\n";
+                                                                        thecode[$$] += "\t" + v + " = "  + codes[$1] +" "+$2+" " + codes[$3]+"\n";
                                                                         codes[$$] = v;
                                                                         exptypes[$$] = "int";
                                                                         if(types.find(each_symrec[$1].datatype)!=types.end()) {
@@ -2362,7 +2362,7 @@ InclusiveOrExpression   : ExclusiveOrExpression                     {$$ =$1;}
                                                                                     if(types.find(each_symrec[$3].datatype)!=types.end()) {
                                                                                         if(types[each_symrec[$3].datatype]==1){
                                                                                             each_symrec[$$] = each_symrec[$1];
-                                                                                            each_symrec[$$].datatype = "boolean";
+                                                                                            each_symrec[$$].datatype = "int";
                                                                                         } 
                                                                                     }
                                                                                 }
@@ -2381,9 +2381,9 @@ ConditionalAndExpression    : InclusiveOrExpression                 {$$ = $1;}
                                                                                     thecode[$$] = thecode[$$]+ "\t" + "ifFalse "+ codes[$1] +" goto "+t+"\n";
                                                                                     thecode[$$] += thecode[$3] ;
                                                                                     thecode[$$] = thecode[$$]+ "\t" + "ifFalse "+ codes[$3] +" goto "+t+"\n";
-                                                                                    thecode[$$] = thecode[$$]+ "\t" + v + "= true" +"\n";
+                                                                                    thecode[$$] = thecode[$$]+ "\t" + v + " = true" +"\n";
                                                                                     thecode[$$] = thecode[$$]+ "\tgoto "+ f +"\n";
-                                                                                    thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + "= false" +"\n";
+                                                                                    thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + " = false" +"\n";
                                                                                     thecode[$$] = thecode[$$]+ f+ ":\n" ;
                                                                                     codes[$$] = v; exptypes[$$]= "boolean";
                                                                                     cmpsym(each_symrec[$1],each_symrec[$3]);
@@ -2402,9 +2402,9 @@ ConditionalOrExpression : ConditionalAndExpression                              
                                                                                             thecode[$$] = thecode[$$]+"\t" + "if "+ codes[$1] +" goto "+t+"\n";
                                                                                             thecode[$$] += thecode[$3] ;
                                                                                             thecode[$$] = thecode[$$]+ "\t" + "if "+ codes[$3] +" goto "+t+"\n";
-                                                                                            thecode[$$] = thecode[$$]+ "\t" + v + "= false" +"\n";
+                                                                                            thecode[$$] = thecode[$$]+ "\t" + v + " = false" +"\n";
                                                                                             thecode[$$] = thecode[$$]+ "\tgoto "+ f +"\n";
-                                                                                            thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + "= true" +"\n";
+                                                                                            thecode[$$] = thecode[$$]+ t+ ":\n\t" + v + " = true" +"\n";
                                                                                             thecode[$$] = thecode[$$]+ f+ ":\n" ;
                                                                                             codes[$$] = v;  exptypes[$$]= "boolean";
                                                                                             cmpsym(each_symrec[$1],each_symrec[$3]);
@@ -2548,12 +2548,12 @@ int main (int argc, char** argv) {
         string p;
         p = "./SymbolTables/SymbolTable" + to_string(i) + ".csv";
         outfile.open(p, ios::trunc);
-        outfile << "Name, " << "DataType, " << "LineNO, " << "Type, " << "ArgumentsOrDimensions" << endl;
+        outfile << "Name, " << "DataType, " << "LineNO, " << "Type, " << "ArgumentsOrDimensions, " << "Offset, " << endl;
         nlist* temp = symboltables[i];
         if(temp!=NULL) outfile << endl; 
         while(temp!=NULL)
         {
-            outfile << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.dimension << ", ARGS: ";
+            outfile << temp->info.name << ", " << temp->info.datatype << ", " << temp->info.lineno << ", " << temp->info.type << ", " << temp->info.offset << ", " << temp->info.dimension << ", ARGS: ";
             list* a = temp->info.args;
             if(a!=NULL)
             {
@@ -2565,7 +2565,7 @@ int main (int argc, char** argv) {
                     a = a->next;
                 }
             }
-            outfile << " " << temp->info.offset;
+            outfile 
             outfile << endl;
             temp = temp->next;
         }
