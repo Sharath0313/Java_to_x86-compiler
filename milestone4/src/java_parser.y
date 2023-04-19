@@ -2565,7 +2565,6 @@ int main (int argc, char** argv) {
                     a = a->next;
                 }
             }
-            outfile 
             outfile << endl;
             temp = temp->next;
         }
