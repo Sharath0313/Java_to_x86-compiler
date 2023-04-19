@@ -110,6 +110,8 @@ vector<string> classdec;
 int field_dec_offset = 0;
 int local_var_offset = 0;
 map<string, int> width;
+map<string, vector<string>> shapes;
+vector<string> shape;
 
 void out(nlist* t){
     
@@ -603,7 +605,7 @@ void methodinvoc(int a,int r,int ind, string id){
         exptypes[r] = q->info.datatype;
         thecode[r] += "\tparam this\n";
         if(exptypes[r] != "void") {codes[r] = gen_var(); 
-            thecode[r] += "\t" + codes[r] + "= call " + cl+ "."+ identifier[a] + "\n";}
+            thecode[r] += "\t" + codes[r] + " = call " + cl+ "."+ identifier[a] + "\n";}
         else {thecode[r] += "\tcall " + cl+ "."+ identifier[a] + "\n";}
     }
     else{ 
@@ -612,7 +614,7 @@ void methodinvoc(int a,int r,int ind, string id){
         exptypes[r] = temp->info.datatype;
         thecode[r] += "\tparam "+ codes[a] +"\n";
         if(exptypes[r] != "void") {codes[r] = gen_var();
-            thecode[r] += "\t" + codes[r] + "= call "; thecode[r]= thecode[r] + q->info.datatype + "." + identifier[a] + "\n";}
+            thecode[r] += "\t" + codes[r] + " = call "; thecode[r]= thecode[r] + q->info.datatype + "." + identifier[a] + "\n";}
         else {
             thecode[r] += "\tcall "; thecode[r]= thecode[r] + q->info.datatype + "." + identifier[a] + "\n";
         }}
@@ -623,7 +625,7 @@ void methodinvoc(int a,int r,int ind, string id){
         if(ind==2) cl= parents[myclass(global_tail)] ;
         thecode[r] += "\tparam "+ codes[a] +"\n";
         if(exptypes[r] != "void") {codes[r] = gen_var();
-            thecode[r] += "\t" + codes[r] + "= call "; thecode[r]= thecode[r] + cl+ "." + id + "\n";}
+            thecode[r] += "\t" + codes[r] + " = call "; thecode[r]= thecode[r] + cl+ "." + id + "\n";}
         else {
             thecode[r] += "\tcall "; thecode[r]= thecode[r] + cl + "." + id + "\n";
         }
@@ -853,13 +855,13 @@ MultipleName            : Name DOT IDENTIFIER           {$$ = $1;
                                                         }
                                                         } 
                         ;
-Modifiers               : STATIC Modifier           {$$ = $2;}
-                        | Modifier STATIC           {$$ = $1;}
-                        | Modifier                  {$$ = $1;}
-                        | STATIC                    {$$ = true;}
+Modifiers               : Modifier                  {$$ = $1;}
+                        | Modifiers Modifier        {$$ = ($1 && $2);}
                         ;
 Modifier                : PUBLIC                    {$$ = true;}
                         | PRIVATE                   {$$ = false;}
+                        | FINAL                     {$$ = true;}
+                        | STATIC                    {$$ = true;}
                         ;
 Type                    : PrimitiveType                 {$$ = $1;}
                         | ReferenceType                 {$$ = $1;}
@@ -1751,30 +1753,10 @@ ArrayCreationExpression : NEW PrimitiveType DimExprs                {$$ = node;
                                                                     thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
                                                                     thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
                                                                     codes[$$] = v2; exptypes[$$] = codes[$2];} 
-                        | NEW PrimitiveType DimExprs Dims           {$$ = node;
-                                                                    node++;
-                                                                    each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim + nt[$4]->dim, NULL, true);
-                                                                    string v1 = gen_var(), v2 = gen_var();
-                                                                    thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " * int "+ codes[$3] +"\n"; 
-                                                                    thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
-                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
-                                                                    codes[$$] = v2; exptypes[$$] = codes[$2];} 
                         | NEW ClassOrInterfaceType DimExprs         {$$ = node;
                                                                     node++;
                                                                     nlist* n = find_in_list(global_tail, nt[$2]->val);
                                                                     if(n!=NULL && n->info.type == 2) each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim , NULL, true);
-                                                                    else yyerror("Class not found.");
-                                                                    string v1 = gen_var(), v2 = gen_var();
-                                                                    thecode[$$] = thecode[$3] ;
-                                                                    thecode[$$] += "\t"+v1 + " = " + to_string(give_size(codes[$2],0))  + " * int "+ codes[$3] +"\n"; 
-                                                                    thecode[$$] = thecode[$$]+ "\t"+"param " + v1 + "\n";
-                                                                    thecode[$$] += "\tcall allocmem\n\t" + v2 + " = popparam\n";
-                                                                    codes[$$] = v2; exptypes[$$] = codes[$2];} 
-                        | NEW ClassOrInterfaceType DimExprs Dims    {$$ = node;
-                                                                    node++;
-                                                                    nlist* n = find_in_list(global_tail, nt[$2]->val);
-                                                                    if(n!=NULL && n->info.type == 2) each_symrec[$$] = create_symrec("", nt[$2]->val, yylineno, 1, nt[$3]->dim + nt[$4]->dim, NULL, true);
                                                                     else yyerror("Class not found.");
                                                                     string v1 = gen_var(), v2 = gen_var();
                                                                     thecode[$$] = thecode[$3] ;
@@ -1794,7 +1776,8 @@ DimExprs                : DimExpr                                   {$$ = node;
                                                                     codes[$$] = v;}
                         ;
 DimExpr                 : OSB Expression CSB                        {if(strcmp(each_symrec[$2].datatype, "int")) yyerror("Expected a int");
-                                                                    $$ = $2;}
+                                                                    $$ = $2;
+                                                                    shape.push_back(codes[$2]);}
                         ;
 Dims                    : OSB CSB                                   {$$ = node;
                                                                     node++;
@@ -2475,7 +2458,11 @@ Assignment              : LeftHandSide Assignment_Operators AssignmentExpression
                                                                                     else yyerror("incompatible types for assignment (can also be lossy decomposition)");
                                                                                     codes[$$] = codes[$1]; exptypes[$$] = exptypes[$1];
                                                                                     cmpsym(each_symrec[$1],each_symrec[$3]);
-                                                                                    each_symrec[$$] = each_symrec[$1];} 
+                                                                                    each_symrec[$$] = each_symrec[$1];
+                                                                                    if(shape.size()!=0){
+                                                                                        shapes[codes[$1]] = shape;
+                                                                                        shape.clear();
+                                                                                    }} 
                         ;
 Assignment_Operators    : ASSIGNMENT_OPERATOR                       {$$ = node;
                                                                     node++;
@@ -2571,6 +2558,19 @@ int main (int argc, char** argv) {
         outfile.close();
     }
     fout.close();
+
+    map<string,vector<string>>::iterator itr = shapes.begin();
+
+    for(; itr!=shapes.end(); itr++)
+    {
+        cout << itr->first << ": ";
+        vector<string> k = itr->second;
+        for(int i=0; i<k.size(); i++) cout << k[i] << " ";
+
+        cout << endl;
+
+    }
+
 	return 0;
 }
 
