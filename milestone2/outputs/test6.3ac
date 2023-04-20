@@ -1,0 +1,47 @@
+System.out.println:
+	s := popparam
+	print s
+Main.main:
+	args := popparam
+	this := popparam
+	n1 := 81
+	n2 := 153
+	gcd := 1
+	i := 1
+L5:
+	t0:= i <= n1
+	ifFalse t0 goto L0
+	t1:= i <= n2
+	ifFalse t1 goto L0
+	t2:= true
+	goto L1
+L0:
+	t2:= false
+L1:
+	ifFalse t2 goto L6
+	t3:= n1 %int i
+	t4:= t3 == 0
+	ifFalse t4 goto L2
+	t5:= n2 %int i
+	t6:= t5 == 0
+	ifFalse t6 goto L2
+	t7:= true
+	goto L3
+L2:
+	t7:= false
+L3:
+	ifFalse t7 goto L4
+	gcd := i
+L4:
+	i:= i +int 1
+	goto L5
+L6:
+	t8:= "GCD of " concatenate n1
+	t9:= t8 concatenate " and "
+	t10:= t9 concatenate n2
+	t11:= t10 concatenate " is "
+	t12:= t11 concatenate gcd
+	param t12
+	call System.out.println
+	EndFunction
+	EndProgram

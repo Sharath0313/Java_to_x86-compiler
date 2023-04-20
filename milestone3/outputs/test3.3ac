@@ -1,0 +1,112 @@
+System.out.println:
+	push stackbase
+	stackbase = stacktop
+	s := popparam
+	print s
+	pop stackbase
+	return
+	EndFunction
+GFG.printMatrix:
+	push stackbase
+	stackbase = stacktop
+	M := popparam
+	rowSize := popparam
+	colSize := popparam
+	this := popparam
+	i = -0(stackbase)
+	i := 0
+L2:
+	t0:= i < rowSize
+	ifFalse t0 goto L3
+	j = -4(stackbase)
+	j := 0
+L0:
+	t2:= j < colSize
+	ifFalse t2 goto L1
+	t3 := j
+	j:= j +int 1
+	goto L0
+L1:
+	t1 := i
+	i:= i +int 1
+	goto L2
+L3:
+	pop stackbase
+	EndFunction
+GFG.add:
+	push stackbase
+	stackbase = stacktop
+	A := popparam
+	B := popparam
+	size := popparam
+	this := popparam
+	i = -0(stackbase)
+	j = -4(stackbase)
+	C = -8(stackbase)
+	i := 0
+L6:
+	t7:= i < size
+	ifFalse t7 goto L7
+	j := 0
+L4:
+	t9:= j < size
+	ifFalse t9 goto L5
+	t11 := C + i
+	t12 := *t11+ j
+	t13 := A + i
+	t14 := *t13+ j
+	t15 := B + i
+	t16 := *t15+ j
+	t17:= *t14 +int *t16
+	*t12 := t17
+	t10 := j
+	j:= j +int 1
+	goto L4
+L5:
+	t8 := i
+	i:= i +int 1
+	goto L6
+L7:
+	return C
+	pop stackbase
+	EndFunction
+GFG.main:
+	push stackbase
+	stackbase = stacktop
+	args := popparam
+	this := popparam
+	size = -0(stackbase)
+	size := 4
+	A = -4(stackbase)
+	param "\nMatrix A:"
+	call System.out.println
+	param A
+	param size
+	param size
+	param this
+	call GFG.printMatrix
+	B = -12(stackbase)
+	param "\nMatrix B:"
+	call System.out.println
+	param B
+	param size
+	param size
+	param this
+	call GFG.printMatrix
+	C = -20(stackbase)
+	param A
+	param B
+	param size
+	param this
+	t24:= call GFG.add
+	C := t24
+	param "\nResultant Matrix:"
+	call System.out.println
+	param C
+	param size
+	param size
+	param this
+	call GFG.printMatrix
+	pop stackbase
+	EndFunction
+	EndProgram

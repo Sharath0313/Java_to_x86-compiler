@@ -1,0 +1,38 @@
+Circle.Circle:
+	push stackbase
+	stackbase = stacktop
+	r = popparam
+	this = popparam
+	radius =  this + 0
+	diameter =  this + 8
+	_t0 = r + int 0
+	*radius = _t0
+	pop stackbase
+	EndFunction
+Main.main:
+	push stackbase
+	stackbase = stacktop
+	args = popparam
+	this = popparam
+	c = -8(stackbase)
+	_t1 = 16
+	param _t1
+	_t2 = call allocmem
+	param 5
+	param _t2
+	call Circle.Circle
+	c = _t2
+	_t3 = c + int 8
+	_t4 = c + int 0
+	_t5 = *_t4 * int 2
+	*_t3 = _t5
+	_t6 = c + int 0
+	param *_t6
+	call System.out.println
+	_t7 = c + int 8
+	param *_t7
+	call System.out.println
+	return
+	pop stackbase
+	EndFunction
+	EndProgram

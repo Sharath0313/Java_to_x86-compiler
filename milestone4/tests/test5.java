@@ -1,31 +1,14 @@
-// Java program to illustrate creating an array
-// of integers, puts some values in the array,
-// and prints each value to standard output.
-
-class GFG {
-	public static void main(String[] args)
-	{
-		// declares an Array of integers.
-		int[] arr;
-
-		// allocating memory for 5 integers.
-		arr = new int[5];
-
-		// initialize the first elements of the array
-		arr[0] = 10;
-
-		// initialize the second elements of the array
-		arr[1] = 20;
-
-		// so on...
-		arr[2] = 30;
-		arr[3] = 40;
-		arr[4] = 50;
-        int length = 5;
-
-		// accessing the elements of the specified array
-		for (int i = 0; i < length; i++)
-			System.out.println("Element at index " + i
-							+ " : " + arr[i]);
+class Testarray{  
+	public static void main(String args[]){  
+		int a[];
+		a = new int[5];//instantiation  
+		a[0]=10;//initialization  
+		a[1]=20;  
+		a[2]=70;  
+		a[3]=40;  
+		a[4]=50;  
+		//traversing array  
+		for(int i=0;i<5;i++)//length is the property of array  
+		    System.out.println(a[i]);  
 	}
 }

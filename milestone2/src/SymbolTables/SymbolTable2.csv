@@ -1,0 +1,5 @@
+Name, DataType, LineNO, Type, ArgumentsOrDimensions
+
+num1, int, 8, 1, 0, ARGS: 
+num2, int, 8, 1, 0, ARGS: 
+counter, int, 10, 1, 0, ARGS: 

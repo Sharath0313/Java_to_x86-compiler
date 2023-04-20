@@ -1,0 +1,28 @@
+System.out.println:
+	s := popparam
+	print s
+Main.main:
+	args := popparam
+	this := popparam
+	rows := 5
+	i := 1
+L2:
+	t0:= i <= rows
+	ifFalse t0 goto L3
+	j := 1
+L0:
+	t1:= j <= i
+	ifFalse t1 goto L1
+	t2:= j concatenate " "
+	param t2
+	call System.out.println
+	j:= j +int 1
+	goto L0
+L1:
+	param ""
+	call System.out.println
+	i:= i +int 1
+	goto L2
+L3:
+	EndFunction
+	EndProgram

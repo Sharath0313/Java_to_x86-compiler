@@ -1,0 +1,45 @@
+GFG.fib:
+	push stackbase
+	stackbase = stacktop
+	n = popparam
+	this = popparam
+	_t0 = n <= 1
+	ifFalse _t0 goto .L0
+	return n
+.L0:
+	_t1 = n - int 1
+	param _t1
+	param this
+	_t2 = call GFG.fib
+	_t3 = n - int 2
+	param _t3
+	param this
+	_t4 = call GFG.fib
+	_t5 = _t2 + int _t4
+	return _t5
+	pop stackbase
+	EndFunction
+GFG.main:
+	push stackbase
+	stackbase = stacktop
+	args = popparam
+	this = popparam
+	N = -8(stackbase)
+	N = 10
+	i = -16(stackbase)
+	i = 0
+.L1:
+	_t6 = i < N
+	ifFalse _t6 goto .L2
+	param i
+	param this
+	_t8 = call GFG.fib
+	param _t8
+	call System.out.println
+	_t7 = i
+	i = i + int 1
+	goto .L1
+.L2:
+	pop stackbase
+	EndFunction
+	EndProgram

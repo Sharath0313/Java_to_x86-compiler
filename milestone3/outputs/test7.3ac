@@ -1,0 +1,42 @@
+System.out.println:
+	push stackbase
+	stackbase = stacktop
+	s := popparam
+	print s
+	pop stackbase
+	return
+	EndFunction
+Main.sum:
+	push stackbase
+	stackbase = stacktop
+	k := popparam
+	this := popparam
+	t0:= k > 0
+	if t0 goto L0
+	return 0
+	goto L1
+L0:
+	t1:= k -int 1
+	param t1
+	param this
+	t2:= call Main.sum
+	t3:= k +int t2
+	return t3
+L1:
+	pop stackbase
+	EndFunction
+Main.main:
+	push stackbase
+	stackbase = stacktop
+	args := popparam
+	this := popparam
+	result = -0(stackbase)
+	param 10
+	param this
+	t4:= call Main.sum
+	result := t4
+	param result
+	call System.out.println
+	pop stackbase
+	EndFunction
+	EndProgram

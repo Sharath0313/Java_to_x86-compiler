@@ -1,0 +1,39 @@
+System.out.println:
+	push stackbase
+	stackbase = stacktop
+	s := popparam
+	print s
+	pop stackbase
+	return
+	EndFunction
+Main.main:
+	push stackbase
+	stackbase = stacktop
+	args := popparam
+	this := popparam
+	rows = -0(stackbase)
+	rows := 5
+	i = -4(stackbase)
+	i := 1
+L2:
+	t0:= i <= rows
+	ifFalse t0 goto L3
+	j = -8(stackbase)
+	j := 1
+L0:
+	t1:= j <= i
+	ifFalse t1 goto L1
+	t2:= j concatenate " "
+	param t2
+	call System.out.println
+	j:= j +int 1
+	goto L0
+L1:
+	param ""
+	call System.out.println
+	i:= i +int 1
+	goto L2
+L3:
+	pop stackbase
+	EndFunction
+	EndProgram

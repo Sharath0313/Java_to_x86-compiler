@@ -1,26 +1,18 @@
-// Java program for the above approach
+// Recursive implementation of
+// Fibonacci Series
 
 class GFG {
 
-	// Function to print N Fibonacci Number
-	static void Fibonacci(int N)
+	// Function to print the fibonacci series
+	static int fib(int n)
 	{
-		int num1 = 0, num2 = 1;
+		// Base Case
+		if (n <= 1)
+			return n;
 
-		int counter = 0;
-
-		// Iterate till counter is N
-		while (counter < N) {
-
-			// Print the number
-			System.out.println(num1 + " ");
-
-			// Swap
-			int num3 = num2 + num1;
-			num1 = num2;
-			num2 = num3;
-			counter = counter + 1;
-		}
+		// Recursive call
+		return fib(n - 1)
+			+ fib(n - 2);
 	}
 
 	// Driver Code
@@ -29,7 +21,10 @@ class GFG {
 		// Given Number N
 		int N = 10;
 
-		// Function Call
-		Fibonacci(N);
+		// Print the first N numbers
+		for (int i = 0; i < N; i++) {
+
+			System.out.println(fib(i));
+		}
 	}
 }
