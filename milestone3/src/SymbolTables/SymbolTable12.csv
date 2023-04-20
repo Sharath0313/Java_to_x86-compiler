@@ -1,0 +1,4 @@
+Name, DataType, LineNO, Type, ArgumentsOrDimensions
+
+io, import, 3, 4, 0, ARGS:  -1
+GFG, class, 5, 2, 0, ARGS:  -1

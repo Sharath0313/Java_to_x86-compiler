@@ -1,0 +1,16 @@
+System.out.println:
+	s := popparam
+	print s
+Main.main:
+	args := popparam
+	this := popparam
+	band := "Beatles"
+	t0:= band == "Beatles"
+	ifFalse t0 goto L0
+	param "Hey "
+	call System.out.println
+	param "Jude!"
+	call System.out.println
+L0:
+	EndFunction
+	EndProgram

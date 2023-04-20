@@ -1,0 +1,51 @@
+Student.getRoll:
+	push stackbase
+	stackbase = stacktop
+	this = popparam
+	roll =  this + 0
+	return *roll
+	pop stackbase
+	EndFunction
+Student.setRoll:
+	push stackbase
+	stackbase = stacktop
+	r = popparam
+	this = popparam
+	roll =  this + 0
+	*roll = r
+	pop stackbase
+	EndFunction
+Student.display:
+	push stackbase
+	stackbase = stacktop
+	this = popparam
+	roll =  this + 0
+	param *roll
+	call System.out.println
+	pop stackbase
+	EndFunction
+Main.main:
+	push stackbase
+	stackbase = stacktop
+	args = popparam
+	this = popparam
+	s = -8(stackbase)
+	_t0 = 8
+	param _t0
+	_t1 = call allocmem
+	s = _t1
+	param 200477
+	param s
+	call Student.setRoll
+	param s
+	_t2 = call Student.getRoll
+	_t3 = _t2 + int 439
+	param _t3
+	param s
+	call Student.setRoll
+	param s
+	call Student.display
+	return
+	pop stackbase
+	EndFunction
+	EndProgram

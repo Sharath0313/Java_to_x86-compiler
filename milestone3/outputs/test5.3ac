@@ -1,0 +1,49 @@
+System.out.println:
+	push stackbase
+	stackbase = stacktop
+	s := popparam
+	print s
+	pop stackbase
+	return
+	EndFunction
+GFG.main:
+	push stackbase
+	stackbase = stacktop
+	args := popparam
+	this := popparam
+	arr = -0(stackbase)
+	t0 := 4 *int 5
+	param t0
+	call allocmem
+	t1 := popparam
+	arr := t1
+	t2 := arr + 0
+	*t2 := 10
+	t3 := arr + 1
+	*t3 := 20
+	t4 := arr + 2
+	*t4 := 30
+	t5 := arr + 3
+	*t5 := 40
+	t6 := arr + 4
+	*t6 := 50
+	length = -8(stackbase)
+	length := 5
+	i = -12(stackbase)
+	i := 0
+L0:
+	t7:= i < length
+	ifFalse t7 goto L1
+	t9:= "Element at index " concatenate i
+	t10:= t9 concatenate " : "
+	t11 := arr + i
+	t12:= t10 concatenate *t11
+	param t12
+	call System.out.println
+	t8 := i
+	i:= i +int 1
+	goto L0
+L1:
+	pop stackbase
+	EndFunction
+	EndProgram

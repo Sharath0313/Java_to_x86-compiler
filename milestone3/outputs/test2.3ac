@@ -1,0 +1,65 @@
+System.out.println:
+	push stackbase
+	stackbase = stacktop
+	s := popparam
+	print s
+	pop stackbase
+	return
+	EndFunction
+PrimeExample.main:
+	push stackbase
+	stackbase = stacktop
+	args := popparam
+	this := popparam
+	i = -0(stackbase)
+	m = -4(stackbase)
+	flag = -8(stackbase)
+	m := 0
+	flag := 0
+	n = -12(stackbase)
+	t0:= cast_to_int 3
+	n := t0
+	t1:= n /int 2
+	m := t1
+	t2:= n == 0
+	if t2 goto L0
+	t3:= n == 1
+	if t3 goto L0
+	t4:= false
+	goto L1
+L0:
+	t4:= true
+L1:
+	if t4 goto L6
+	i := 2
+L2:
+	t6:= i <= m
+	ifFalse t6 goto L3
+	t7:= n %int i
+	t8:= t7 == 0
+	ifFalse t8 goto L4
+	t9:= n concatenate " is not prime number"
+	param t9
+	call System.out.println
+	flag := 1
+	goto L3
+L4:
+	t10 := i
+	i:= i +int 1
+	goto L2
+L3:
+	t11:= flag == 0
+	ifFalse t11 goto L5
+	t12:= n concatenate " is prime number"
+	param t12
+	call System.out.println
+L5:
+	goto L7
+L6:
+	t5:= n concatenate " is not prime number"
+	param t5
+	call System.out.println
+L7:
+	pop stackbase
+	EndFunction
+	EndProgram

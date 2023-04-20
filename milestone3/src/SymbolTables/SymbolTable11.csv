@@ -1,0 +1,5 @@
+Name, DataType, LineNO, Type, ArgumentsOrDimensions
+
+printMatrix, void, 10, 3, 0, ARGS: int(2), int(0), int(0) -1
+add, int, 23, 3, 2, ARGS: int(2), int(2), int(0) -1
+main, void, 36, 3, 0, ARGS: String(1) -1

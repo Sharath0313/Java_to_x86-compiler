@@ -1,0 +1,41 @@
+Testarray.main:
+	push stackbase
+	stackbase = stacktop
+	args = popparam
+	this = popparam
+	a = -8(stackbase)
+	_t0 = 8 * int 5
+	param _t0
+	_t1 = call allocmem
+	a = _t1
+	_t3 = 0 * int 8
+	_t2 = a + int _t3
+	*_t2 = 10
+	_t5 = 1 * int 8
+	_t4 = a + int _t5
+	*_t4 = 20
+	_t7 = 2 * int 8
+	_t6 = a + int _t7
+	*_t6 = 70
+	_t9 = 3 * int 8
+	_t8 = a + int _t9
+	*_t8 = 40
+	_t11 = 4 * int 8
+	_t10 = a + int _t11
+	*_t10 = 50
+	i = -16(stackbase)
+	i = 0
+.L0:
+	_t12 = i < 5
+	ifFalse _t12 goto .L1
+	_t15 = i * int 8
+	_t14 = a + int _t15
+	param *_t14
+	call System.out.println
+	_t13 = i
+	i = i + int 1
+	goto .L0
+.L1:
+	pop stackbase
+	EndFunction
+	EndProgram

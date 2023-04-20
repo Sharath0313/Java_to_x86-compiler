@@ -1,0 +1,12 @@
+Main.main:
+	push stackbase
+	stackbase = stacktop
+	args = popparam
+	this = popparam
+	a = -8(stackbase)
+	a = 3
+	param a
+	call System.out.println
+	pop stackbase
+	EndFunction
+	EndProgram

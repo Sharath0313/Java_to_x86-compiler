@@ -1,0 +1,64 @@
+System.out.println:
+	push stackbase
+	stackbase = stacktop
+	s := popparam
+	print s
+	pop stackbase
+	return
+	EndFunction
+gfg.GCD:
+	push stackbase
+	stackbase = stacktop
+	u := popparam
+	v := popparam
+	this := popparam
+	t0:= u == 0
+	ifFalse t0 goto L0
+	return v
+L0:
+	t1:= v %int u
+	param t1
+	param u
+	param this
+	t2:= call gfg.GCD
+	return t2
+	pop stackbase
+	EndFunction
+gfg.LCM:
+	push stackbase
+	stackbase = stacktop
+	u := popparam
+	v := popparam
+	this := popparam
+	param u
+	param v
+	param this
+	t3:= call gfg.GCD
+	t4:= u /int t3
+	t5:= t4 *int v
+	return t5
+	pop stackbase
+	EndFunction
+gfg.main:
+	push stackbase
+	stackbase = stacktop
+	args := popparam
+	this := popparam
+	u = -0(stackbase)
+	v = -4(stackbase)
+	u := 25
+	v := 15
+	t6:= "LCM of " concatenate u
+	t7:= t6 concatenate " and "
+	t8:= t7 concatenate v
+	t9:= t8 concatenate " is "
+	param u
+	param v
+	param this
+	t10:= call gfg.LCM
+	t11:= t9 concatenate t10
+	param t11
+	call System.out.println
+	pop stackbase
+	EndFunction
+	EndProgram

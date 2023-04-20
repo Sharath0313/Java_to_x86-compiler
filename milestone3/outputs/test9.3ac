@@ -1,0 +1,25 @@
+System.out.println:
+	push stackbase
+	stackbase = stacktop
+	s := popparam
+	print s
+	pop stackbase
+	return
+	EndFunction
+Main.main:
+	push stackbase
+	stackbase = stacktop
+	args := popparam
+	this := popparam
+	band = -0(stackbase)
+	band := "Beatles"
+	t0:= band == "Beatles"
+	ifFalse t0 goto L0
+	param "Hey "
+	call System.out.println
+	param "Jude!"
+	call System.out.println
+L0:
+	pop stackbase
+	EndFunction
+	EndProgram

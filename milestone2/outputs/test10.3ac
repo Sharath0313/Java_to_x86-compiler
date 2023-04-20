@@ -1,0 +1,27 @@
+System.out.println:
+	s := popparam
+	print s
+Main.main:
+	args := popparam
+	this := popparam
+	num := 1234
+	reversed := 0
+	t0:= "Original Number: " concatenate num
+	param t0
+	call System.out.println
+L0:
+	t1:= num != 0
+	ifFalse t1 goto L1
+	t2:= num %int 10
+	digit := t2
+	t3:= reversed *int 10
+	t4:= t3 +int digit
+	reversed := t4
+	num := num /int 10
+	goto L0
+L1:
+	t5:= "Reversed Number: " concatenate reversed
+	param t5
+	call System.out.println
+	EndFunction
+	EndProgram

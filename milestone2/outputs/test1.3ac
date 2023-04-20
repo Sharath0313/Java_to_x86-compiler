@@ -1,0 +1,33 @@
+System.out.println:
+	s := popparam
+	print s
+GFG.Fibonacci:
+	N := popparam
+	this := popparam
+	num1 := 0
+	num2 := 1
+	counter := 0
+L0:
+	t0:= counter < N
+	ifFalse t0 goto L1
+	t1:= num1 concatenate " "
+	param t1
+	call System.out.println
+	t2:= num2 +int num1
+	num3 := t2
+	num1 := num2
+	num2 := num3
+	t3:= counter +int 1
+	counter := t3
+	goto L0
+L1:
+	EndFunction
+GFG.main:
+	args := popparam
+	this := popparam
+	N := 10
+	param N
+	param this
+	call GFG.Fibonacci
+	EndFunction
+	EndProgram
