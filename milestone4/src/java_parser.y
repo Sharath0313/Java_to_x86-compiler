@@ -2545,9 +2545,9 @@ int main (int argc, char** argv) {
     width["float"] = 4;
     width["double"] = 5;
 
-    if(argc!=3)
+    if(argc!=3 and argc!=4)
     {
-        cout << "The syntax for execution is: program input_filename output_filename" << "\n";
+        cout << "The syntax for execution is: program input_filename output3ac_filename {executable_filename}\nwhere {} is optional" << endl;
         return 0;
     }
     fout.open(argv[2]);
@@ -2592,10 +2592,21 @@ int main (int argc, char** argv) {
     }
     fout.close();
 
-    string c = argv[2];
-    c = "python3 x86.py " + c;
-    char* command = strdup(const_cast<char*>(c.c_str()));
-    system(command);
+    if(argc==3)
+    {
+        string c = argv[2];
+        c = "python3 x86.py " + c;
+        char* command = strdup(const_cast<char*>(c.c_str()));
+        system(command);
+    }
+    else
+    {
+        string c = argv[2];
+        string d = argv[3];
+        c = "python3 x86.py " + c  + " "+ d;
+        char* command = strdup(const_cast<char*>(c.c_str()));
+        system(command);
+    }
 
 	return 0;
 }
