@@ -1,13 +1,16 @@
 import sys
 
-if len(sys.argv) != 2:
-    sys.exit("The syntax to run x86.py file is: python3 x86.py input3ac_filename")
+if len(sys.argv) != 2 and len(sys.argv) != 3:
+    sys.exit("The syntax to run x86.py file is: python3 x86.py input3ac_filename {output_filname}\nwhere {} means optional")
 
 input_3ac = open(sys.argv[1],"r")
 
 inst_3ac = input_3ac.readlines()
 x86 = []
-outfile = open("x86.s","w")
+if len(sys.argv) == 2:
+    outfile = open("x86.s","w")
+else :
+    outfile = open(sys.argv[2],"w")
 
 inst_3ac = [x[:-1] for x in inst_3ac]
 
@@ -93,6 +96,12 @@ while i<len(inst_3ac):
             x86.append("\tleaq .LC0(%rip), %rdi\n")
             x86.append("\tmovl $0, %eax\n")
             x86.append("\tcall printf@PLT\n")
+            for x in reg:
+                if reg[x] == 1:
+                    push_list.append(x)
+            push_list.reverse()
+            for x in push_list:
+                x86.append("\tpopq "+x+"\n")
             push_curr_param = 1
         elif len(words) == 1:
             if "L" in words[0]:
@@ -113,8 +122,8 @@ while i<len(inst_3ac):
                         elif par_words[1][0] == "*" and (par_words[1][1:] in classfields):
                             for x in reg:
                                 if reg[x]==0:
-                                    push_param.append("\tmovq "+offset["this"]+"(%rbp),"+" "+x+"\n")
                                     push_param.append("\tmovq "+classfields[par_words[1][1:]]+"("+x+"), "+param[push_curr_param]+"\n")
+                                    push_param.append("\tmovq "+offset["this"]+"(%rbp),"+" "+x+"\n")
                                     break
                         elif par_words[1][0] == '*' and par_words[1][1] == '_':
                             push_param.append("\tmovq ("+var_reg[par_words[1][1:]]+"), "+param[push_curr_param]+"\n")
@@ -130,8 +139,8 @@ while i<len(inst_3ac):
                         elif par_words[1][0] == "*" and (par_words[1][1:] in classfields):
                             for x in reg:
                                 if reg[x]==0:
-                                    push_param.append("\tmovq "+offset["this"]+"(%rbp),"+" "+x+"\n")
                                     push_param.append("\tpushq "+classfields[par_words[1][1:]]+"("+x+")\n")
+                                    push_param.append("\tmovq "+offset["this"]+"(%rbp),"+" "+x+"\n")
                                     break
                         elif par_words[1][0] == '*' and par_words[1][1] == '_':
                             push_param.append("\tpushq ("+var_reg[par_words[1][1:]]+")"+"\n")
