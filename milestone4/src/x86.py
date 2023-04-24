@@ -96,6 +96,7 @@ while i<len(inst_3ac):
             x86.append("\tleaq .LC0(%rip), %rdi\n")
             x86.append("\tmovl $0, %eax\n")
             x86.append("\tcall printf@PLT\n")
+            push_list = []
             for x in reg:
                 if reg[x] == 1:
                     push_list.append(x)

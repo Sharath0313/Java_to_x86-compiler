@@ -32,6 +32,7 @@ main:
 	leaq .LC0(%rip), %rdi
 	movl $0, %eax
 	call printf@PLT
+	popq %rbx
 	movq -24(%rbp), %r12
 	movq $1, %r13
 	movq -24(%rbp), %r14
