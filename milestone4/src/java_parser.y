@@ -1679,11 +1679,6 @@ Primary                 : PrimaryNoNewArray                         {$$ = $1;}
                         | ArrayCreationExpression                   {$$ = $1;}
                         ;
 PrimaryNoNewArray       : Literal                                   {$$ = $1;}
-                        | THIS                                      {$$ = node;
-                                                                    node++;
-                                                                    each_symboltable[$$] = NULL;
-                                                                    codes[$$] = $1; nlist *t= global_tail;
-                                                                    exptypes[$$] = myclass(t);} 
                         | ONB Expression CNB                        {$$ = $2;}
                         | ClassInstanceCreationExpression           {$$ = $1;}
                         | FieldAccess                               {$$ = $1;}
