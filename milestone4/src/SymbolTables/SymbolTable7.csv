@@ -1,4 +1,4 @@
 Name, DataType, LineNO, Type, ArgumentsOrDimensions, Offset, 
 
-fib, int, 7, 3, -1, 0, ARGS: int(0)
-main, void, 19, 3, -1, 0, ARGS: String(1)
+sum, int, 2, 3, -1, 0, ARGS: int(0)
+main, void, 9, 3, -1, 0, ARGS: String(1)
