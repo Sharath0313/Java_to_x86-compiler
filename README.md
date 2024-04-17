@@ -6,4 +6,4 @@ Make sure you have a working flex and bison installation.
 
 ## Run Locally
 
-Wait Untill we complete the project
+Each milestone has a `description.pdf` and `milestone.pdf` under the folder `doc`. Please refer `description.pdf` for the problem statement for the milestone and `milestone.pdf` to run the code locally and further explainations.
